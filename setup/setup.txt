@@ -1,0 +1,10 @@
+1. Copy the files in this directory to the following location:
+.htaccess  - /bizplannerpro/.htaccess
+Base.php - /bizplannerpro/Base.php
+Credentials - /bizplanner/credentials
+
+2. Change settings in public/bizplannerpro/credentials/Credentials.php
+
+3. Import virtualfdpro_bizplanner.sql, and other sql
+
+DO NOT COMMIT THESE CHANGES!!!!
