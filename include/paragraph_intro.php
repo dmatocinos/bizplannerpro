@@ -1,0 +1,2 @@
+ <strong>Here's what we will cover in this chapter.</strong> Click any section to get started. You can easily add, remove, reorder, 
+                        or rename the sections shown here on the <a href="#" class="edit-chapter">Chapter Setup</a> page.

@@ -1,0 +1,127 @@
+RewriteEngine On
+
+
+##RewriteBase /bizplannerpro/
+
+RewriteBase /virtualfd/public/bizplannerpro/
+
+RewriteRule ^register/([player.]+)(/)?$ /dev_/pages/register/register_player.php/?register=$1
+RewriteRule ^activate/([player.]+)(/)?$ /dev_/pages/register/register_player.php/?activate=$1
+RewriteRule ^update/([player.]+)(/)?$ /dev_/pages/update/editprofile_player.php?update=$1
+RewriteRule ^update/([player.]+)/([A-Za-z\-0-9.]+)(/)?$ /dev_/pages/update/editprofile_player.php?update=$1&editarea=$2
+
+RewriteRule ^register/([coach.]+)(/)?$ /dev_/pages/register/register_coach.php/?register=$1
+RewriteRule ^activate/([coach.]+)(/)?$ /dev_/pages/register/register_coach.php/?activate=$1
+RewriteRule ^update/([coach.]+)(/)?$ /dev_/pages/update/editprofile_coach.php?update=$1
+RewriteRule ^update/([coach.]+)/([A-Za-z\-0-9.]+)(/)?$ /dev_/pages/update/editprofile_coach.php?update=$1&editarea=$2
+
+RewriteRule ^create/([session.]+)(/)?$ /dev_/pages/register/register_session.php/?create=$1
+
+RewriteRule ^login/([A-Za-z\-0-9.]+)(/)?$ /dev_/pages/login.php?login=$1
+
+RewriteRule ^upload/profile-photo(/)?$ /dev_/library/image_upload/uploadProfilePhoto.php
+RewriteRule ^edit/profile-photo(/)?$ /dev_/library/image_upload/updateProfilePhoto.php
+
+RewriteRule ^edit-password(/)?$ /dev_/pages/edit_password.php
+RewriteRule ^resources(/)?$ /dev_/pages/resources.php
+RewriteRule ^(/)?$ /public/
+
+RewriteRule ^Base.php(.*)$ 404.html
+RewriteRule ^Definitions.php(.*)$ 404.html
+
+
+RewriteRule ^plan(/)?$ new_plan.php
+
+## Executive-summary and its children page
+RewriteRule ^executive-summary(/)?$ pages/executive-summary/executive-summary.php
+RewriteRule ^executive-summary/who-we-are(/)?$ pages/executive-summary/who-we-are.php
+RewriteRule ^executive-summary/what-we-sell(/)?$ pages/executive-summary/what-we-sell.php
+RewriteRule ^executive-summary/who-we-sell-to(/)?$ pages/executive-summary/who-we-sell-to.php
+RewriteRule ^executive-summary/financial-summary(/)?$ pages/executive-summary/financial-summary.php
+
+RewriteRule ^plandetail(/)?$ pages/plan_detail.php
+
+##Company and its children pages
+RewriteRule ^company(/)?$ pages/company/company.php
+RewriteRule ^company/company-overview(/)?$ pages/company/company-overview.php
+RewriteRule ^company/management-team(/)?$ pages/company/management-team.php
+RewriteRule ^company/locations-and-facilities(/)?$ pages/company/locations-and-facilities.php
+RewriteRule ^company/mission-statement(/)?$ pages/company/mission-statement.php
+RewriteRule ^company/company-history(/)?$ pages/company/company-history.php
+
+##Products and Services
+RewriteRule ^products-and-services(/)?$ pages/products-and-services/products-and-services.php
+RewriteRule ^products-and-services/products-and-services-c(/)?$ pages/products-and-services/products-and-services-c.php
+RewriteRule ^products-and-services/competitors(/)?$ pages/products-and-services/competitors.php
+RewriteRule ^products-and-services/product-and-service-development(/)?$ pages/products-and-services/product-and-service-development.php
+RewriteRule ^products-and-services/sourcing-and-fulfillment(/)?$ pages/products-and-services/sourcing-and-fulfillment.php
+RewriteRule ^products-and-services/technology(/)?$ pages/products-and-services/technology.php
+RewriteRule ^products-and-services/intellectual-property(/)?$ pages/products-and-services/intellectual-property.php
+
+##Target Market
+RewriteRule ^target-market(/)?$ pages/target-market/target-market.php
+RewriteRule ^target-market/market-overview(/)?$ pages/target-market/market-overview.php
+RewriteRule ^target-market/market-needs(/)?$ pages/target-market/market-needs.php
+RewriteRule ^target-market/market-trends(/)?$ pages/target-market/market-trends.php
+RewriteRule ^target-market/market-growth(/)?$ pages/target-market/market-growth.php
+RewriteRule ^target-market/industry-analysis(/)?$ pages/target-market/industry-analysis.php
+RewriteRule ^target-market/key-customers(/)?$ pages/target-market/key-customers.php
+
+
+##Strategy and Implementation
+RewriteRule ^strategy-and-implementation(/)?$ pages/strategy-and-implementation/strategy-and-implementation.php
+RewriteRule ^strategy-and-implementation/marketing(/)?$ pages/strategy-and-implementation/marketing.php
+RewriteRule ^strategy-and-implementation/milestones(/)?$ pages/strategy-and-implementation/milestones.php
+RewriteRule ^strategy-and-implementation/swot-analysis(/)?$ pages/strategy-and-implementation/swot-analysis.php
+RewriteRule ^strategy-and-implementation/competitive-edge(/)?$ pages/strategy-and-implementation/competitive-edge.php
+RewriteRule ^strategy-and-implementation/promotional-activity(/)?$ pages/strategy-and-implementation/promotional-activity.php
+RewriteRule ^strategy-and-implementation/sales-administration(/)?$ pages/strategy-and-implementation/sales-administration.php
+RewriteRule ^strategy-and-implementation/sales-plan(/)?$ pages/strategy-and-implementation/sales-plan.php
+RewriteRule ^strategy-and-implementation/strategic-alliances(/)?$ pages/strategy-and-implementation/strategic-alliances.php
+RewriteRule ^strategy-and-implementation/exit-strategy(/)?$ pages/strategy-and-implementation/exit-strategy.php
+
+
+
+
+##Financial Plan
+RewriteRule ^financial-plan(/)?$ pages/financial-plan/financial-plan.php
+RewriteRule ^financial-plan/human-resources(/)?$ pages/financial-plan/human-resources.php
+RewriteRule ^financial-plan/budget(/)?$ pages/financial-plan/budget.php
+RewriteRule ^financial-plan/sales-forecast(/)?$ pages/financial-plan/sales-forecast.php
+RewriteRule ^financial-plan/cash-flow-projections(/)?$ pages/financial-plan/cash-flow-projections.php
+RewriteRule ^financial-plan/loans-and-investments(/)?$ pages/financial-plan/loans-and-investments.php
+RewriteRule ^financial-plan/investments(/)?$ pages/financial-plan/investments.php
+
+
+
+##Financial Statement
+RewriteRule ^financial-statements(/)?$ pages/financial-statements/financial-statements.php
+RewriteRule ^financial-statements/profit-and-loss-statement(/)?$ pages/financial-statements/profit-and-loss-statement.php
+RewriteRule ^financial-statements/balance-sheet(/)?$ pages/financial-statements/balance-sheet.php
+RewriteRule ^financial-statements/cash-flow-statement(/)?$ pages/financial-statements/cash-flow-statement.php
+
+
+##Appendix
+RewriteRule ^appendix(/)?$  pages/appendix/appendix.php
+RewriteRule ^appendix/sales-forecast-apx(/)?$  pages/appendix/sales-forecast-apx.php
+RewriteRule ^appendix/personnel-plan-apx(/)?$  pages/appendix/personnel-plan-apx.php
+RewriteRule ^appendix/budget-apx(/)?$  pages/appendix/budget-apx.php
+RewriteRule ^appendix/loans-and-investments-apx(/)?$  pages/appendix/loans-and-investments-apx.php
+RewriteRule ^appendix/profit-and-loss-statement-apx(/)?$  pages/appendix/profit-and-loss-statement-apx.php
+RewriteRule ^appendix/balance-sheet-apx(/)?$  pages/appendix/balance-sheet-apx.php
+RewriteRule ^appendix/cash-flow-statement-apx(/)?$  pages/appendix/cash-flow-statement-apx.php
+
+##Printing
+RewriteRule ^print(/)?$  pages/print/pdf.php
+
+
+ErrorDocument 400 /pages/error-page.php
+ErrorDocument 401 /pages/error-page.php
+ErrorDocument 403 /pages/error-page.php
+ErrorDocument 404 /pages/error-page.php
+ErrorDocument 500 /pages/error-page.php
+
+
+##exit
+RewriteRule ^exit(/)?$  exit.php
+

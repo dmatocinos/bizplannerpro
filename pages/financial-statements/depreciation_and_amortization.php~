@@ -1,0 +1,67 @@
+<?php
+$lib = new expenditure_lib();
+$numbersyrOfFinancialForecast = $lib->numberOfFinancialYrForcasting;	
+$major_purchases_details = $lib->getAllMajorPurchaseDetails('', 'mp_date');
+$years = array();
+foreach ($major_purchases_details as $purchase) {
+				list($pm, $py) = explode(' ', $purchase['mp_date']);
+				if ( !isset($years[$py])) {
+					$years[$py] = 0;
+				}
+
+				if ($purchase['mp_depreciate']) {
+					$years[$py] += $purchase['mp_price'];
+					
+					if (!isset($monthly_detail_purchases[$purchase['mp_date']])) {
+						$monthly_detail_purchases[$purchase['mp_date']] = $purchase['mp_price'];
+					} else {
+						$monthly_detail_purchases[$purchase['mp_date']] += $purchase['mp_price'];
+					}
+					
+				}
+				
+}
+
+$major_purchase = array_values($years);
+
+$p = .20;
+/*
+for($e_yr = 0; $e_yr < $numbersyrOfFinancialForecast; $e_yr++ ) {
+	$total_major_purchase = 0;
+	for ($i = 0; $i < $e_yr; $i++) {
+		$total_major_purchase += $major_purchase[$i];
+	}
+
+	if (isset($data[$e_yr - 1])) {
+		$total_major_purchase -= $data[$e_yr - 1];
+	}
+
+	$data[$e_yr] = $total_major_purchase * $p;
+}
+*/
+	$financialYearSF = $sales->startFinancialYear;
+	foreach ($allSalesDetails[0]['financial_status'] as $eachFinStat)
+			{
+				$tmpval = isset($years[$financialYearSF])?$years[$financialYearSF]:0;
+				$major_purchase[] = $tmpval;
+				$data[$financialYearSF] = $tmpval * $p;
+				$td[] = $sales->defaultCurrency . $data[$financialYearSF];
+				$financialYearSF++;
+			}
+
+	$array_depreciation = $data;
+
+?>
+
+<div class="row row-item singleline">
+	<span class="cell label column-0 singleline">
+		<p class="overflowable">Depreciation and Amortization</p>
+	</span>
+
+	<?php foreach ($allSalesDetails[0]['financial_status'] as $eachFinStat){ ?>
+	<span class="cell data column-1 singleline">
+		<p class="overflowable"><?php echo $open_bracket;?><?php echo $sales->defaultCurrency . $data[$financialYearSF]; $financialYearSF++;  ?></p>
+	</span>
+	<?php } ?>
+	<div class="x-clear"></div>
+</div><!--end .singleline-->

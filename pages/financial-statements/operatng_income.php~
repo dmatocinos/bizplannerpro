@@ -1,0 +1,41 @@
+
+        <div id="widgetForm:j_id265:j_id274:j_id276:0:preview-table-table" class="preview-table salesForecast-preview table-4-columns">
+         <!------------------------------------------	
+           OPERATNG INCOME 
+         ------------------------------------------>
+             <div class="row row-group_footer singleline">
+                  <span class="cell label column-0 singleline">
+                          <p class="overflowable">Operatng Income</p>
+                  </span>
+                <?php
+                $totalCostCounter = 0;
+                
+				
+				
+                foreach($arrayCostSummation as $sumOfAllCost)
+                {
+                    $operatingIncome[$totalCostCounter] = ($grossMargin[$totalCostCounter] - $allExpense[$totalCostCounter]);
+					
+					if($operatingIncome[$totalCostCounter] < 0)
+					{
+						$open_bracket  = OPEN_BRACKET;
+						$closed_bracket  = CLOSED_BRACKET;
+						$cancelNegative = -1;
+					}
+					else
+					{
+						$open_bracket  = "";
+						$closed_bracket  = "";
+						$cancelNegative = 1;
+					}
+					?><span class="cell data column-1 singleline">
+                        <?php //$allExpense[$totalCostCounter;  ?>
+                        <p class="overflowable"><?php echo $open_bracket;?><?php echo $sales->defaultCurrency.number_format(($operatingIncome[$totalCostCounter] * $cancelNegative ), 0, '.', ','); ?><?php echo $closed_bracket;?> </p>	
+                    </span>
+                <?php 
+                $totalCostCounter = $totalCostCounter + 1;	
+                }
+               ?>
+              <div class="x-clear"></div>
+            </div><!--end .singleline-->
+      </div><!--end of .widgetForm-->   

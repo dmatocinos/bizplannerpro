@@ -1,0 +1,43 @@
+<?php
+class token_lib
+{
+	public $allmsgs = array();
+	var $color;
+	var $DONE = false;
+	
+	var $columns =''; 
+	var $table = '';
+	var $where = '';
+	
+	function __construct(){
+				
+		$this->db = new Database();
+		$this->global_func = new global_lib();
+		
+		
+	}
+			
+	
+	public function getToken($userid)
+	{
+		$column = "user_tokens.token AS token";
+		$where = "user_id = {$userid}";
+		$table = USERTOKEN_TB;
+		 
+		$_data = $this->db->select( $column, $table, $where);
+		
+		if(count($_data) > 0)
+		{
+			return $_data;
+		}
+		else
+		{
+			return false;
+		}	
+	}
+	
+		
+	
+	
+}
+?>

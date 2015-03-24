@@ -1,0 +1,171 @@
+body, html {
+    background: none repeat scroll 0 0 #e84404;
+}
+
+.top-aside, .banner, .small_banner, .banner-slider, footer {
+    background: radial-gradient(circle, #fa7037, #e84404) repeat scroll 0 0 rgba(0, 0, 0, 0);
+}
+
+.planBox{
+	background:#e84404; 	
+}
+
+#secondary-links{
+	background:#e84404 none;
+
+}
+
+a,
+a:hover,
+h1,
+h2, 
+h3,
+h4,
+h5,
+h6 header *,
+dl dt.current,
+.current-menu-item a,
+.current-menu-parent a,
+.current-menu-parent ul .current-menu-item a,
+.current-menu-ancestor ul .current-menu-ancestor a,
+.current_page_parent a,
+.pagination .current:link,
+.pagination .current:visited,
+.post-details a:link,
+.post-details a:visited,
+aside a:visited,
+.postinfo a,
+.comment-author,
+.comment-text a,
+.tt-icon span,
+.tt-comment-count,
+.sidebar .subnav .has_subnav .current_subpage a,
+.sidebar .subnav .has_subnav .current_subpage a:hover,
+.submenu .current,
+.pagination .current:link,
+.pagination .current:visited,
+.meta a:link,
+.wp-pagenavi .current,
+.article_preview strong a,
+.article_preview strong a:hover,
+.sitemap-title,
+.faq-content .faq-heading,
+.faq-questions ol,
+.callout-heading,
+.member-contact-phone,
+#home-marketing-icons strong,
+.faq-questions a:hover,
+.s-one ul li a,
+.s-one .current-page-ancestor a,
+.s-one .current-page-ancestor ul li a,
+.home-vertical-sidebar .widget-heading,
+.tt-icon strong
+{color: #eb5c24;}
+
+.widget_content h3 {
+    color: #eb5c24;
+}
+
+form.forecast button.add_forecast,
+form.forecast button.new_forecast,
+form.add_new_emplyee button, 
+form.plain_form button,
+.button-gray span span
+{    
+    color: #FF804E;    
+}
+
+.tableBuilder .page h3 {
+    color: #e84404 !important;
+}
+
+
+.sales_forecast_table .header {
+    background-color: #FF804E;
+}
+
+
+.tableBuilder .line-item .header {
+	background-color: #FF804E;
+}
+
+.tableBuilder .page .item-header {
+    background: none repeat scroll 0 0 #FF804E !important;
+    color: #e84404 !important;
+    border-color: #e84404 !important;
+}
+
+.tableBuilder .page .item-header h3 {
+	color: #fff !important;
+}
+
+
+.widget-page-header h2 a.backtoplan {
+    background: url("images/arrow_orange-left.png") no-repeat scroll left center rgba(0, 0, 0, 0) !important;
+
+}
+
+
+.button-primary,.button-primary-large{
+		
+	background: #e84404;
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#e84404', endColorstr='#fa7037');
+	background: -webkit-gradient(linear, left top, left bottom, from(#e84404), to(#fa7037));
+	background: -moz-linear-gradient(top, #e84404, #fa7037);
+	
+	
+}
+.button-primary:hover, .button-primary:focus, .button-primary-large:hover, .button-primary-large:focus{
+	background:#fa7037;	
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#fa7037', endColorstr='#e84404');
+	background: -webkit-gradient(linear, left top, left bottom, from(#fa7037), to(#e84404));
+	background: -moz-linear-gradient(top, #fa7037, #e84404);
+}
+
+button.update_page{
+	
+	background: #e84404;
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#e84404', endColorstr='#fa7037');
+	background: -webkit-gradient(linear, left top, left bottom, from(#e84404), to(#fa7037));
+	background: -moz-linear-gradient(top, #e84404, #fa7037);
+	
+
+}
+button.update_page:hover{
+	background: #fa7037;
+	
+}
+
+
+.items {	
+    background: none repeat scroll 0 0 #fe976d;   
+}
+
+a .section-wrapper {    
+    border: 3px solid #fe976d;  	
+}
+
+#plan-footer{
+	background:#fe976d;	
+}
+
+.section a p {
+	color: #eb5c24;
+}
+
+.support_nav li.selector ul li a {
+	color: #eb5c24 !important;
+}    
+ 
+.sidebar .subnav .current_subpage a,
+.sidebar .subnav .current_subpage a:hover{
+background:url(images/submenu-active-royal-orange.png) right top no-repeat;
+}
+
+.support_nav li.selector .arrow {
+    background: url("images/arrow_down_orange.png") no-repeat scroll center center rgba(0, 0, 0, 0);   
+}
+.support_nav li.selector .menu-arrow:hover .arrow{background:url(images/arrow_down_orange.png) no-repeat scroll center center;}
+.support_nav li.selector.active .arrow{background:transparent url('images/arrow_down_orange.png') no-repeat scroll center center;}
+
+

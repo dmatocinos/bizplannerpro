@@ -1,0 +1,413 @@
+<?php
+class FormData
+{
+	
+	function __construct(){
+	
+		$this->global_func = new global_lib();
+		$this->londonDate = $this->global_func->getLondonDateTimeZone(); 
+		$this->defaultSettings = new Settings();
+		
+		
+	}
+	
+	
+	/**************************************************
+	
+		Get Business Post Data
+	
+	****************************************************/
+	
+	public function BusinessFormData($registerOrUpdate)
+	{
+		$this->register_date = $this->londonDate;
+		
+		$this->newPlanName =  	htmlentities(addslashes($_POST['newPlanForm:plan_name']),ENT_COMPAT, "UTF-8");
+		
+		$this->businessStage =  strtolower(htmlentities(addslashes($_POST['businessStageRadioButtonGroupgroup']),ENT_COMPAT, "UTF-8"));
+		
+		$bp_startMonth =  		htmlentities(addslashes($_POST['newPlanForm:start-month']),ENT_COMPAT, "UTF-8");
+		$bp_startYear =  		htmlentities(addslashes($_POST['newPlanForm:start-year']),ENT_COMPAT, "UTF-8");
+		$this->bp_startDate = 	date("M", strtotime($bp_startMonth)) ." ".$bp_startYear;
+		$this->bp_user_id = 	$_POST['bp_user_id'];
+		
+		// Plan length
+		$this->number_of_financial_forecast_yr = $this->defaultSettings->bp_no_financial_forecast_yr;// 3 or 5
+		
+		// 1 or 2 or 3 or 4 or 5 cannot be greater than numberOfFinancialYrForcasting above
+		$this->yrs_of_monthly_financial_details  = $this->defaultSettings->bp_yr_of_monthly_financial_details;  
+		
+		// For related expenses (Burden Rate) in ‰
+		$this->related_expenses_in_percentage  = $this->defaultSettings->bp_releated_expenses_in_percentage; 
+		
+		// For income tax in ‰
+		$this->income_tax_in_percentage = $this->defaultSettings->bp_income_tax_in_percentage;
+		
+		$this->currency = $this->defaultSettings->bp_currency;
+		
+		if($registerOrUpdate == 'register')
+		{
+			$this->queryString = "(NULL,
+								'$this->newPlanName', 
+								'$this->businessStage', 
+								'$this->bp_startDate', 
+								'$this->currency',
+								'$this->number_of_financial_forecast_yr',
+								'$this->yrs_of_monthly_financial_details',
+								'$this->related_expenses_in_percentage',
+								'$this->income_tax_in_percentage',
+								'$this->bp_user_id'
+								)";
+		
+			$this->doesPlanExistAlready =  "bp_name = '$this->newPlanName'";
+		}
+		else if($registerOrUpdate == 'update')
+		{
+			// TOSIN UPDATE THIS BASED ON THE SETTING FORM PAGE YOU CREATE
+			$this->queryString = "
+								bp_name = '$this->newPlanName',
+								bp_type = '$this->businessStage', 
+								bp_financial_start_date = '', 
+								bp_number_of_financial_forecast_yr = '' ,
+								bp_yrs_of_monthly_financial_details = '',
+								bp_related_expenses_in_percentage = '',
+								bp_income_tax_in_percentage = ''
+								";
+		}
+		
+		
+	}
+	
+	/*********************************************
+	
+		PAGE DATA	
+		
+	**********************************************/
+	public function PageFormData($registerOrUpdate)
+	{
+		$this->page_content = htmlentities(addslashes($_POST['page_content']),ENT_COMPAT, "UTF-8");
+		
+		if($registerOrUpdate == 'update')
+		{
+			$this->queryString = "page_content = '$this->page_content'";
+		}
+		
+	}
+	
+	/*********************************************
+	
+		SECTION DATA	
+		
+	**********************************************/
+	public function SectionFormData($registerOrUpdate)
+	{
+		$this->section_content = htmlentities(addslashes($_POST['section_content']),ENT_COMPAT, "UTF-8");
+		
+		if($registerOrUpdate == 'update')
+		{
+			$this->queryString = "section_content = '$this->section_content'";
+		}
+		
+	}
+	
+	
+	/**************************************************
+	
+		New Employee Data
+	
+	****************************************************/
+	public function EmployeeFormData($registerOrUpdate)
+	{
+		$this->new_employee_name = htmlentities(addslashes($_POST['new_employee_name']),ENT_COMPAT, "UTF-8");
+		
+		if($registerOrUpdate == 'register')
+		{
+			
+			if(isset($_SESSION['bpFinancialStartDate']))
+			{
+				$employeeDefaultStartDate =  $_SESSION['bpFinancialStartDate'];
+				$employee_bp_id = $_SESSION['bpId']; // Foreign Key that links business plan table with employee table
+			}
+			else
+			{
+				$employeeDefaultStartDate = date('M Y');
+			}
+			
+			$employeeType = 'regular';
+			
+			
+			$this->queryStringEmployeeTable = "(emplye_name, employee_start_date,  emplye_type, employee_bp_id) VALUES 
+											('$this->new_employee_name', '$employeeDefaultStartDate', '$employeeType', '$employee_bp_id')";
+		}
+
+		
+		if($registerOrUpdate == 'update')
+		{
+			$this->queryString = "page_content = '$this->page_content'";
+		}
+		
+	}
+	
+	
+	/*------------------------------------------------------------------------------
+		New Major Purchase
+	------------------------------------------------------------------------------**/
+	public function MajorPurchaseFormData($registerOrUpdate)
+	{
+		$this->new_major_purchase_name = htmlentities(addslashes($_POST['new_major_purchase_name']),ENT_COMPAT, "UTF-8");
+		$this->mp_depreciate = 1;
+		$this->mp_price = 0.00;
+		if($registerOrUpdate == 'register')
+		{
+			
+			if(isset($_SESSION['bpFinancialStartDate']))
+			{
+				$mpDefaultStartDate =  $_SESSION['bpFinancialStartDate'];
+				$mp_bp_id = $_SESSION['bpId']; // Foreign Key that links business plan table with major purchase table
+			}
+			else
+			{
+				$mpDefaultStartDate = date('M Y');
+			}
+			
+			$mpType = 'regular';
+			
+			
+			$this->queryStringMajorPurchaseTable = "(mp_name, mp_price,  mp_date, mp_depreciate, mp_bpid) VALUES 
+											('$this->new_major_purchase_name', '$this->mp_price', '$mpDefaultStartDate', '$this->mp_depreciate', '$mp_bp_id')";
+		}
+
+		return $this->queryStringMajorPurchaseTable;
+	}
+	
+	
+	
+	
+	/*------------------------------------------------------------------------------
+		New Expenditure Data
+	------------------------------------------------------------------------------**/
+	public function ExpenditureFormData($registerOrUpdate)
+	{
+		$this->new_employee_name = htmlentities(addslashes($_POST['new_expenditure_name']),ENT_COMPAT, "UTF-8");
+		
+		if($registerOrUpdate == 'register')
+		{
+			
+			if(isset($_SESSION['bpFinancialStartDate']))
+			{
+				$employeeDefaultStartDate =  $_SESSION['bpFinancialStartDate'];
+				$employee_bp_id = $_SESSION['bpId']; // Foreign Key that links business plan table with sales forecast table
+			}
+			else
+			{
+				$employeeDefaultStartDate = date('M Y');
+			}
+			
+			$employeeType = 'regular';
+			
+			
+			$this->queryStringEmployeeTable = "(expenditure_name, expenditure_start_date,  expenditure_bp_id) VALUES 
+											('$this->new_employee_name', '$employeeDefaultStartDate', '$employee_bp_id')";
+		}
+
+		
+		if($registerOrUpdate == 'update')
+		{
+			$this->queryString = "page_content = '$this->page_content'";
+		}
+		
+	}
+	
+	/*------------------------------------------------------------------------------
+		New Expenditure 12 month Data
+	------------------------------------------------------------------------------**/
+	public function Exp_12MonthPlanData($registerOrUpdate)
+	{
+		if($registerOrUpdate == 'register')
+		{
+			$where = "";
+			$getMaxEmployeeId = $this->db->select("MAX(exp_id)", EXPENDITURE_TB, $where, "", "");
+		   	if(count($getMaxArticleId) > 0)
+		   	{
+				$expenditureeid = $getMaxEmployeeId[0]['MAX(exp_id)'];
+				
+				$this->queryString_12Month = "(employee_id) VALUES ($expenditureeid)";
+			}
+		}
+		
+		
+		elseif($registerOrUpdate == 'update')
+		{
+			
+		}
+	}
+	
+	/*------------------------------------------------------------------------------
+		Prepare New Sale Data
+	------------------------------------------------------------------------------**/
+	public function SaleFormData($registerOrUpdate)
+	{
+		$this->new_sale_name = htmlentities(addslashes($_POST['new_sale_name']),ENT_COMPAT, "UTF-8");
+		
+		if($registerOrUpdate == 'register')
+		{
+			$sale_bp_id = $_SESSION['bpId'];// Foreign Key that links business plan table with sales forecast table
+			
+			$this->queryStringSaleTable = "(sales_forecast_name,  sales_forecast_bp_id) VALUES 	('$this->new_sale_name', '$sale_bp_id')";
+		}
+
+		
+		if($registerOrUpdate == 'update')
+		{
+			$this->queryString = "page_content = '$this->page_content'";
+		}
+	}
+	
+	/*------------------------------------------------------------------------------
+		Prepare New Loan / Investment Data
+	------------------------------------------------------------------------------**/
+	public function LoanInvestmentFormData($registerOrUpdate)
+	{
+		$this->new_loanInvest_name = htmlentities(addslashes($_POST['new_loanInvest_name']),ENT_COMPAT, "UTF-8");
+	
+		$this->type_of_funding = "Loan or Investment";
+	
+	
+		if($registerOrUpdate == 'register')
+		{
+			$loanInvestment_bp_id = $_SESSION['bpId'];// Foreign Key that links business plan table with sales forecast table
+			
+			$this->queryStringLoanInvestTable = "(loan_invest_name,  type_of_funding, loan_invest_bp_id) VALUES ('$this->new_loanInvest_name', '$this->type_of_funding', '$loanInvestment_bp_id')";
+			
+			$this->queryStringLoanInvestTable;
+		}
+
+		
+		if($registerOrUpdate == 'update')
+		{
+			$this->queryString = "page_content = '$this->page_content'";
+		}
+		
+	}
+	
+	/*------------------------------------------------------------------------------
+		Prepare New Sale Data
+	------------------------------------------------------------------------------**/
+	public function prepareSaleFormData12OmonthsForecast()
+	{
+		$month_01 = htmlentities(addslashes($_POST['month_01']),ENT_COMPAT, "UTF-8");
+		$month_02 = htmlentities(addslashes($_POST['month_02']),ENT_COMPAT, "UTF-8");
+		$month_03 = htmlentities(addslashes($_POST['month_03']),ENT_COMPAT, "UTF-8");
+		$month_04 = htmlentities(addslashes($_POST['month_04']),ENT_COMPAT, "UTF-8");
+		$month_05 = htmlentities(addslashes($_POST['month_05']),ENT_COMPAT, "UTF-8");
+		$month_06 = htmlentities(addslashes($_POST['month_06']),ENT_COMPAT, "UTF-8");
+		$month_07 = htmlentities(addslashes($_POST['month_07']),ENT_COMPAT, "UTF-8");
+		$month_08 = htmlentities(addslashes($_POST['month_08']),ENT_COMPAT, "UTF-8");
+		$month_09 = htmlentities(addslashes($_POST['month_09']),ENT_COMPAT, "UTF-8");
+		$month_10 = htmlentities(addslashes($_POST['month_10']),ENT_COMPAT, "UTF-8");
+		$month_11 = htmlentities(addslashes($_POST['month_11']),ENT_COMPAT, "UTF-8");
+		$month_12 = htmlentities(addslashes($_POST['month_12']),ENT_COMPAT, "UTF-8");
+		
+		$this->monthsUpdateQueryString = "
+										month_01 = '$month_01', 
+										month_02 = '$month_02',	
+										month_03 = '$month_03',	
+										month_04 = '$month_04',	
+										month_05 = '$month_05',	
+										month_06 = '$month_06',	
+										month_07 = '$month_07',	
+										month_08 = '$month_08',	
+										month_09 = '$month_09',	
+										month_10 = '$month_10',	
+										month_11 = '$month_11',	
+										month_12 = '$month_12'
+										";
+										 
+		$monthsArray = array($month_01, $month_02,	$month_03,	$month_04,	$month_05,	$month_06,	$month_07,	$month_08,	$month_09,	$month_10,	$month_11,	$month_12);
+		$totalForYr1 = array_sum($monthsArray);								 
+		$totalForYr2 = htmlentities(addslashes($_POST['totalForYr2']),ENT_COMPAT, "UTF-8");								 
+		$totalForYr3 = htmlentities(addslashes($_POST['totalForYr3']),ENT_COMPAT, "UTF-8");		
+								 
+		$this->financialForecastUpdateDataInArray = array($totalForYr1, $totalForYr2, $totalForYr3);
+	}
+	
+	
+	public function prepare12MonthProjectionFormData()
+	{
+		$limr_month_01 = htmlentities(addslashes($_POST['limr_month_01']),ENT_COMPAT, "UTF-8");
+		$limr_month_02 = htmlentities(addslashes($_POST['limr_month_02']),ENT_COMPAT, "UTF-8");
+		$limr_month_03 = htmlentities(addslashes($_POST['limr_month_03']),ENT_COMPAT, "UTF-8");
+		$limr_month_04 = htmlentities(addslashes($_POST['limr_month_04']),ENT_COMPAT, "UTF-8");
+		$limr_month_05 = htmlentities(addslashes($_POST['limr_month_05']),ENT_COMPAT, "UTF-8");
+		$limr_month_06 = htmlentities(addslashes($_POST['limr_month_06']),ENT_COMPAT, "UTF-8");
+		$limr_month_07 = htmlentities(addslashes($_POST['limr_month_07']),ENT_COMPAT, "UTF-8");
+		$limr_month_08 = htmlentities(addslashes($_POST['limr_month_08']),ENT_COMPAT, "UTF-8");
+		$limr_month_09 = htmlentities(addslashes($_POST['limr_month_09']),ENT_COMPAT, "UTF-8");
+		$limr_month_10 = htmlentities(addslashes($_POST['limr_month_10']),ENT_COMPAT, "UTF-8");
+		$limr_month_11 = htmlentities(addslashes($_POST['limr_month_11']),ENT_COMPAT, "UTF-8");
+		$limr_month_12 = htmlentities(addslashes($_POST['limr_month_12']),ENT_COMPAT, "UTF-8");
+		
+		$limp_month_01 = htmlentities(addslashes($_POST['limp_month_01']),ENT_COMPAT, "UTF-8");
+		$limp_month_02 = htmlentities(addslashes($_POST['limp_month_02']),ENT_COMPAT, "UTF-8");
+		$limp_month_03 = htmlentities(addslashes($_POST['limp_month_03']),ENT_COMPAT, "UTF-8");
+		$limp_month_04 = htmlentities(addslashes($_POST['limp_month_04']),ENT_COMPAT, "UTF-8");
+		$limp_month_05 = htmlentities(addslashes($_POST['limp_month_05']),ENT_COMPAT, "UTF-8");
+		$limp_month_06 = htmlentities(addslashes($_POST['limp_month_06']),ENT_COMPAT, "UTF-8");
+		$limp_month_07 = htmlentities(addslashes($_POST['limp_month_07']),ENT_COMPAT, "UTF-8");
+		$limp_month_08 = htmlentities(addslashes($_POST['limp_month_08']),ENT_COMPAT, "UTF-8");
+		$limp_month_09 = htmlentities(addslashes($_POST['limp_month_09']),ENT_COMPAT, "UTF-8");
+		$limp_month_10 = htmlentities(addslashes($_POST['limp_month_10']),ENT_COMPAT, "UTF-8");
+		$limp_month_11 = htmlentities(addslashes($_POST['limp_month_11']),ENT_COMPAT, "UTF-8");
+		$limp_month_12 = htmlentities(addslashes($_POST['limp_month_12']),ENT_COMPAT, "UTF-8");
+		
+		
+		// Received Section
+		$this->receivedMonthsUpdateQueryString = "
+										limr_month_01 = '$limr_month_01', 
+										limr_month_02 = '$limr_month_02',	
+										limr_month_03 = '$limr_month_03',	
+										limr_month_04 = '$limr_month_04',	
+										limr_month_05 = '$limr_month_05',	
+										limr_month_06 = '$limr_month_06',	
+										limr_month_07 = '$limr_month_07',	
+										limr_month_08 = '$limr_month_08',	
+										limr_month_09 = '$limr_month_09',	
+										limr_month_10 = '$limr_month_10',	
+										limr_month_11 = '$limr_month_11',	
+										limr_month_12 = '$limr_month_12'
+										";
+										 
+		$receivedMonthsArray = array($limr_month_01, $limr_month_02, $limr_month_03,	$limr_month_04,	$limr_month_05,	$limr_month_06,	$limr_month_07,	$limr_month_08,	$limr_month_09,	$limr_month_10,	$limr_month_11,	$limr_month_12);
+		$lir_total_per_yr1 = array_sum($receivedMonthsArray);								 
+		$lir_total_per_yr2 = htmlentities(addslashes($_POST['lir_total_per_yr2']),ENT_COMPAT, "UTF-8");								 
+		$lir_total_per_yr3 = htmlentities(addslashes($_POST['lir_total_per_yr3']),ENT_COMPAT, "UTF-8");		
+								 
+		$this->projectionsReceiveUpdateDataInArray = array($lir_total_per_yr1, $lir_total_per_yr2, $lir_total_per_yr3);
+		
+		
+		// Payment Section
+		$this->paymentMonthsUpdateQueryString = "
+										limp_month_01 = '$limp_month_01', 
+										limp_month_02 = '$limp_month_02',	
+										limp_month_03 = '$limp_month_03',	
+										limp_month_04 = '$limp_month_04',	
+										limp_month_05 = '$limp_month_05',	
+										limp_month_06 = '$limp_month_06',	
+										limp_month_07 = '$limp_month_07',	
+										limp_month_08 = '$limp_month_08',	
+										limp_month_09 = '$limp_month_09',	
+										limp_month_10 = '$limp_month_10',	
+										limp_month_11 = '$limp_month_11',	
+										limp_month_12 = '$limp_month_12'
+										";
+		
+		$paymentMonthsArray = array($limp_month_01, $limp_month_02, $limp_month_03,	$limp_month_04,	$limp_month_05,	$limp_month_06,	$limp_month_07,	$limp_month_08,	$limp_month_09,	$limp_month_10,	$limp_month_11,	$limp_month_12);
+		$lip_total_per_yr1 = array_sum($paymentMonthsArray);								 
+		$lip_total_per_yr2 = htmlentities(addslashes($_POST['lip_total_per_yr2']),ENT_COMPAT, "UTF-8");								 
+		$lip_total_per_yr3 = htmlentities(addslashes($_POST['lip_total_per_yr3']),ENT_COMPAT, "UTF-8");		
+		
+		$this->projectionsPaymentUpdateDataInArray = array($lip_total_per_yr1, $lip_total_per_yr2, $lip_total_per_yr3);
+
+	}
+}
+?>

@@ -1,0 +1,2335 @@
+<?php
+
+require_once(LIBRARY_PATH . '/pdf.php'); require_once(LIBRARY_PATH .
+'/jpgraph_lib.php');
+
+class BizPlannerProPDF extends PDFHandler {
+
+	protected $grapher 		= null;
+	protected $graphdatabank = null;
+	protected $salesdata 	= array();
+	protected $expensesdata = array();
+	protected $employeedata = array();
+	protected $loansdata	= array();
+	protected $profitlossdata = array();
+	
+	public function __construct()
+	{
+		$title = '';
+		$this->grapher = new GraphHandler();
+		$this->graphdatabank = new GraphDataHandler();
+		parent::__construct($title);
+	}
+
+	public function build()
+	{
+		$page_repo = new page_lib();
+		$user = $page_repo->getCurrentUser();
+		$user = $user[0];
+
+		$this->buildCover($user);
+
+		$top_menus = $page_repo->topMenus();
+
+		$this->pdf->setImageScale(1.53);
+		foreach ($top_menus as $top_menu) {
+
+			$title 		= $top_menu['pagetitle'];
+			$orientation 	= ($title!="Appendix"?"P":"L");
+
+			$this->pdf->writeHeader($top_menu['pagetitle'], $orientation);
+
+			$this->addSubMenu($page_repo, $this->pdf, $top_menu);
+		}
+
+		$this->buildTOC();
+	}
+
+	protected function addSubMenu($page_repo, $pdf, $page)
+	{
+		$title 		= $page['pagetitle'];
+		$appendixprefix = ($title!="Appendix"?"":"Appendix");
+		$appendixstarted = false;
+		foreach ($page_repo->getMenu($page) as $menu) {
+			// Check for renderer method. If none, use default
+			$fn = 'render' .$appendixprefix. str_replace(' ', '', $menu['pagetitle']);
+			if ( ! method_exists($this, $fn)) {
+				$fn = 'renderDefault';
+			}
+			if ($appendixprefix=="Appendix") { 
+				if (!$appendixstarted) {
+					$appendixstarted = true;
+				} else {
+					$pdf->AddPage('L'); 
+				}
+				
+				
+			}
+			$this->renderPageTitle($page_repo, $pdf, $menu);
+			$this->$fn($page_repo, $pdf, $menu);
+
+			//$this->addSubMenu($page_repo, $pdf, $menu);
+		}
+	}
+
+	protected function renderDefault($page_repo, $pdf, $menu)
+	{
+		$this->renderPageContent($page_repo, $pdf, $menu);
+		$this->renderDefaultSections($page_repo, $pdf, $menu);
+	}
+
+	protected function renderDefaultSections($page_repo, $pdf, $menu)
+	{
+		foreach ($page_repo->getSections($menu) as $section) {
+			$pdf->writeH3($section['section_title']);
+			$pdf->writeHTML(htmlspecialchars_decode($section['section_content']), true, false, false, false, 'L');
+			$pdf->Ln(4);
+		}
+	}
+
+	protected function renderPageTitle($page_repo, $pdf, $menu)
+	{
+		$pdf->writeSubHeader($menu['pagetitle']);
+	}
+
+	protected function renderPageContent($page_repo, $pdf, $menu)
+	{
+		if ($menu['page_content']) {
+			$pdf->writeHTML(htmlspecialchars_decode($menu['page_content']), true, false, false, false, 'L');
+			$pdf->Ln(4);
+		}
+	}
+
+	// STRATEGY AND IMPLEMENTATION
+
+	protected function renderMarketing($page_repo, $pdf, $menu)
+	{
+		$pdf->writeH3('Marketing');
+		$this->renderDefault($page_repo, $pdf, $menu);
+	}
+
+	protected function renderSWOTAnalysis($page_repo, $pdf, $menu)
+	{
+		$pdf->writeH3('SWOT Analysis');
+		$this->renderDefault($page_repo, $pdf, $menu);
+	}
+
+	// FINANCIAL PLAN
+
+	protected function renderSalesForecast($page_repo, $pdf, $menu)
+	{
+		$pdf->Ln(1);
+		
+		
+		$sales_forecast_lib = new sales_forecast_lib();
+		$sales = $sales_forecast_lib->getAllSales('', '', '');
+		
+		
+		
+		
+		$thtml = new HTMLTable();
+		
+		$pdf->writeH3('Sales Forecast Table');
+		$pdf->Ln(3);
+
+		$fy_start = $sales_forecast_lib->startFinancialYear;
+		$th = array('');
+		foreach ($sales[0]['financial_status'] as $each_fin_stat) {
+			$th[] = 'FY' . ++$fy_start;
+		}
+		$thtml->addTHRow($th);
+
+		$unit_sales 		= array();
+		$price_per_unit 	= array();
+		$product_sales 		= array();
+		$direct_cost_per_unit 	= array();
+		$direct_cost 		= array();
+		$totalSale 			= array();
+
+		$years = array_slice($th, 1);
+		//for appendix later on
+		$products				= array(); //product name, array() of monthlyvalues
+		$monthlyUnitSales		= array();
+		$monthlyPricePerUnit 	= array();
+		$monthlyProductSales	= array();        
+		$monthlyDirectCostPerUnit 	= array();
+		$monthlyDirectCost		= array();
+		
+		$monthlyTotalSales		= array();
+		$monthlyTotalDirectCost	= array();
+		$monthlyGrossMargin		= array();			
+		$monthlyGrossMPercentage= array();
+
+		
+
+		$start_month  = date("M", strtotime($_SESSION['bpFinancialStartDate'])) ;
+		$start_years  = date("Y", strtotime($_SESSION['bpFinancialStartDate'])) ;
+		$list12Months = $sales_forecast_lib->twelveMonths($start_years, $start_month);
+		$months					= $list12Months;
+		$monthCounter = 0;
+		$productCounter = 0;
+		//
+
+		foreach ($sales as $exp_details) {
+			$us_td 		= $ppu_td = $ps_td = $dcpu_td = $dc_td = array();
+			$us_td[] 	= $exp_details['sales_forecast_name'];
+			$ppu_td[] 	= $exp_details['sales_forecast_name'];
+			$ps_td[] 	= $exp_details['sales_forecast_name'];
+			$dcpu_td[] 	= $exp_details['sales_forecast_name'];
+			$dc_td[] 	= $exp_details['sales_forecast_name'];
+
+			$totalSaleCounter = 0;
+
+			foreach ($exp_details['financial_status'] as $fin_details) {
+				$us_td[] = $this->number($fin_details['total_per_yr']);
+
+				$ppu_td[] = $this->currency($sales_forecast_lib, $exp_details['price']);
+
+				if ( ! isset($totalSale[$totalSaleCounter])) {
+					$totalSale[$totalSaleCounter] = 0;
+				}
+				$sale = ($fin_details['total_per_yr'] * $exp_details['price']);
+				$totalSale[$totalSaleCounter] += $sale;
+
+				$ps_td[] = $this->currency($sales_forecast_lib, $sale);
+
+				$dcpu_td[] = $this->currency($sales_forecast_lib, $exp_details['cost']);
+
+				$cost = ($fin_details['total_per_yr'] * $exp_details['cost']);
+				if ( ! isset($totalCost[$totalSaleCounter])) {
+					$totalCost[$totalSaleCounter] = 0;
+				}
+				$totalCost[$totalSaleCounter] += $cost;
+				$dc_td[] = $this->currency($sales_forecast_lib, $cost);
+
+				$totalSaleCounter = $totalSaleCounter + 1;
+			}
+
+			$unit_sales[] 		= $us_td;
+			$price_per_unit[] 	= $ppu_td;
+			$product_sales[] 	= $ps_td;
+			$direct_cost_per_unit[] = $dcpu_td;
+			$direct_cost[] 		= $dc_td;
+
+			//set monthly values
+			$products[$productCounter] = array();
+			$products[$productCounter]['name'] = $exp_details['sales_forecast_name'];
+			$monthlyUnitSales		= array();
+			$monthlyPricePerUnit 	= array();
+			$monthlyProductSales	= array();        
+			$monthlyDirectCostPerUnit 	= array();
+			$monthlyDirectCost		= array();
+			
+
+			$monthCounter = 0;
+
+			foreach($list12Months as $monthList)
+			{
+				
+				// $monthsInNumbers i.e 01 ... 12						
+				$monthsInNumbers 		= str_pad($monthCounter+1,2,"0",STR_PAD_LEFT); //pad with leading 0						
+
+				//array_push($datax, $allExpensesMonths[$monthCounter]);
+				//array_push($datay, array_sum($eachSaleMonth_[$monthCounter]));
+
+				$monthlyUnitSales[$monthCounter]		= $exp_details['month_'.$monthsInNumbers];
+				$monthlyPricePerUnit[$monthCounter] 	= $exp_details['price'];
+				$monthlyProductSales[$monthCounter]		= $exp_details['price'] * $exp_details['month_'.$monthsInNumbers];
+				$monthlyTotalSales[$monthCounter]		+= $monthlyProductSales[$monthCounter];
+				$monthlyDirectCostPerUnit[$monthCounter]= $exp_details['cost'];
+				$monthlyDirectCost[$monthCounter]		= $exp_details['cost'] * $exp_details['month_'.$monthsInNumbers];
+				$monthlyTotalDirectCost[$monthCounter]	+= $monthlyDirectCost[$monthCounter];
+				
+				
+				
+				$monthCounter = $monthCounter+1;
+			}
+			
+			$products[$productCounter]['monthlyUnitSales'] 		= $monthlyUnitSales;
+			$products[$productCounter]['monthlyPricePerUnit'] 	= $monthlyPricePerUnit;
+			$products[$productCounter]['monthlyProductSales'] 	= $monthlyProductSales;
+			$products[$productCounter]['monthlyDirectCostPerUnit'] 	= $monthlyDirectCostPerUnit;
+			$products[$productCounter]['monthlyDirectCost'] 		= $monthlyDirectCost;
+
+			$productCounter++;
+
+		}
+
+		for($mo=0;$mo<12;$mo++) {
+			$monthlyGrossMargin[]		= $monthlyTotalSales[$mo] - $monthlyTotalDirectCost[$mo];
+			$monthlyGrossMPercentage[]	= $monthlyGrossMargin[$mo]/$monthlyTotalSales[$mo]*100;
+		}
+		
+		//keep values 
+		$this->salesdata['products']			= $products;
+		$this->salesdata['monthlyTotalSales'] 	= $monthlyTotalSales;				
+		$this->salesdata['monthlyTotalDirectCost'] 	= $monthlyTotalDirectCost;
+		$this->salesdata['monthlyGrossMargin'] 	= $monthlyGrossMargin;
+		$this->salesdata['monthlyGrossMPercentage'] 	= $monthlyGrossMPercentage;
+		$this->salesdata['months'] 				= $months;
+		$this->salesdata['years'] 				= $years;
+		$this->salesdata['currency']			= $sales_forecast_lib->defaultCurrency;
+
+
+		$this->salesdata['yrlyUnitSales']	= $unit_sales;
+		$this->salesdata['yrlyUnitPrices']	= $price_per_unit;
+		$this->salesdata['yrlyProdSales']	= $product_sales;
+		
+		$this->salesdata['yrlyUnitCost']	= $direct_cost_per_unit;
+		$this->salesdata['yrlyCosts']		= $direct_cost;
+		$this->salesdata['yrlyTotalCosts']	= $total_direct_cost;
+
+
+		$total_sales = array('Total Sales');
+		$total_direct_cost = array('Total Direct Cost');
+		$gross_margin = array('Gross Margin');
+		$gross_margin_percentage = array('Gross Margin %');
+		$this->salesdata['grossMarginRaw'] = array();
+		for ($i = 0; $i < 3; $i++) {
+			$total_sales[] = $this->currency($sales_forecast_lib, $totalSale[$i]);
+			$total_direct_cost[] = $this->currency($sales_forecast_lib, $totalCost[$i]);
+			$gm = $totalSale[$i] - $totalCost[$i];
+			$gross_margin[] = $this->currency($sales_forecast_lib, $gm);
+			$this->salesdata['grossMarginRaw'][] = $gm;
+			$gross_margin_percentage[] = $this->percentage(($gm * 100) / $totalSale[$i]);
+		}
+		
+		
+		//keep a reference to sales data to be used later on
+		$this->salesdata['yrlyTotalCosts']		= $total_direct_cost;
+		$this->salesdata['yrlyGrossMargin'] 	= $gross_margin;
+		$this->salesdata['yrlyGMPercentage'] 	= $gross_margin_percentage;
+		$this->salesdata['yrlyTotalSales']		= $total_sales;
+		
+		
+		
+
+		$thtml->add1ColRow('Unit Sales','bold', 'left', 'normal','4');
+		foreach ($unit_sales as $row) {
+			$thtml->addTDRow($row, null, true);
+		}
+
+		$thtml->add1ColRow('Price Per Unit','bold', 'left', 'normal','4');
+		foreach ($price_per_unit as $row) {
+			$thtml->addTDRow($row, null, true);
+		}
+
+		$thtml->add1ColRow('Sales','bold', 'left', 'normal','4');
+		foreach ($product_sales as $row) {
+			$thtml->addTDRow($row, null, true);
+		}
+
+		$thtml->addTDRow($total_sales, array('t'=>'total','s'=>'bold'));
+
+		$thtml->add1ColRow('Direct Cost Per Unit','bold', 'left', 'normal','4');
+		foreach ($direct_cost_per_unit as $row) {
+			$thtml->addTDRow($row, null, true);
+		}
+
+		$thtml->add1ColRow('Direct Cost','bold', 'left', 'normal','4');
+		foreach ($direct_cost as $row) {
+			$thtml->addTDRow($row, null, true);
+		}
+
+		$thtml->addTDRow($total_direct_cost, array('t'=>'total','s'=>'bold'));
+
+		//keep a reference to sales data to be used later on
+		$this->salesdata['gross_margin'] = $gross_margin;
+		$this->salesdata['gross_margin_percentage'] = $gross_margin_percentage;
+
+		$this->writeGrossMarginRows($this->salesdata['gross_margin'], $this->salesdata['gross_margin_percentage'], $thtml);
+
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+
+		//echo highlight_string(var_export($thtml->getHTML(), TRUE));
+		//echo '<br>';
+		
+
+
+		//keep data to graphdatabank
+		$this->graphdatabank->salesobj  = $sales_forecast_lib;
+		$this->graphdatabank->sales     = $sales;
+		$this->graphdatabank->totalsales = $totalSale;
+		$this->graphdatabank->grossmargin = $gross_margin_percentage;
+
+		//var_dump($this->graphdatabank);
+
+		//handle sales(revenue) by year
+		$data = $this->graphdatabank->getSalesByYearGraphData();
+		$data['title'] = '';
+		$this->renderImage($pdf, 'Sales By Year', 'yearly_graph_sales.png', $data);
+
+		//handle sales(revenue) by month
+		$data = $this->graphdatabank->getSalesByMonthGraphData();
+		$data['title'] = 'Months in Year 1';
+		$this->renderImage($pdf, 'Sales By Month', 'monthly_graph_sales.png', $data);
+
+		//handle gross by year
+		$data = $this->graphdatabank->getSalesGrossByYearGraphData();
+		$data['title'] = '';
+		$this->renderImage($pdf, 'Gross Margin(%) By Year', 'yearly_graph_gross_margin.png', $data);
+
+		//handle gross by month
+		$data = $this->graphdatabank->getSalesGrossByMonthGraphData();
+		$data['title'] = 'Months in Year 1';
+		$this->renderImage($pdf, 'Gross Margin(%) By Month', 'monthly_graph_gross_margin.png', $data);
+
+		$pdf->writeH3('Sales Forecast');
+		$this->renderPageContent($page_repo, $pdf, $menu);
+
+
+		
+
+	}
+
+	private function writeGrossMarginRows($gross_margin, $gross_margin_percentage, &$table, $long = null)
+	{
+		if ($long==null) {
+			
+			$table->addTDRow($gross_margin, null, true);
+			$table->addTDRow($gross_margin_percentage, array('t'=>'total','s'=>'bold'));
+		} else {
+			$table->addLTDRow($gross_margin, null, true);
+			$table->addLTDRow($gross_margin_percentage, array('t'=>'total','s'=>'bold'));
+		}
+		
+	}
+
+	protected function renderHumanResources($page_repo, $pdf, $menu)
+	{
+		/*
+				$th = array('');
+				foreach ($allEmpDetails[0]['financial_status'] as $eachFinStat) {
+						$th[] = 'FY' . $eachFinStat['financial_plan'];
+				}
+				*/
+		$pdf->writeH3('Personal Plan');
+		$pdf->Ln(1.5);
+		$this->writePPlanTable($pdf);
+		
+		$pdf->Ln(2);
+		$pdf->writeH3('About the Human Resources');
+		$this->renderPageContent($page_repo, $pdf, $menu);
+	}
+	
+	
+	
+	
+	private function writePPlanTable($pdf) {
+		
+		$employee = new employee_lib();
+		$allEmpDetails = $employee->getAllEmployeeDetails2("", "", "");
+
+		if(!$allEmpDetails) return;
+		
+
+		$years = array('');
+		
+		foreach ($allEmpDetails[0]['financial_status'] as $eachFinStat)
+		{
+
+			$years[] = "FY" . $eachFinStat['financial_year'];
+
+		}
+		
+		$table = new HTMLTable();
+		$table->addTHRow($years);
+		
+		$counter        = 0;
+		$arraySummation = "";
+		
+		
+		$employees 		= array();
+		
+		
+		//echo highlight_string(var_export($allEmpDetails, TRUE));
+		
+		$monthlysalarytotal = array();
+		
+		foreach($allEmpDetails as $empDetails)
+		{
+			$td = array();
+			
+			$td[] = $empDetails['emplye_name'];
+			foreach($empDetails['financial_status'] as $finDetails)
+			{
+				$td[] = $employee->defaultCurrency.$finDetails['total_per_yr'];
+			}
+			
+
+			for($i=0; $i< count($empDetails['financial_status']); $i++)
+			{
+				$arraySummation[$i][$counter]  = $empDetails['financial_status'][$i]['total_per_yr'];
+			}
+			
+			$table->addTDRow($td);
+			
+			$counter = $counter+1;
+			
+			
+			$monthlysalary 	= array();
+
+			
+
+
+			for($mo=0; $mo < 12; $mo++)
+			{		
+				// $monthsInNumbers i.e 01 ... 12						
+				$monthsInNumbers 		= str_pad($mo+1,2,"0",STR_PAD_LEFT); //pad with leading 0	
+				$monthlysalary[$mo]		= $empDetails['month_'.$monthsInNumbers];
+				$monthlysalarytotal[$mo]	+= $monthlysalary[$mo]; 
+
+			}
+			
+			$employees[] = array('name'=>$empDetails['emplye_name'], 'monthlysalary'=>$monthlysalary, 'yrlysalary'=>$td);
+			
+			
+		}
+		
+		$this->employeedata['employees'] = $employees;
+		$this->employeedata['monthlysalarytotal'] = $monthlysalarytotal;
+		
+		//echo highlight_string(var_export($employees, TRUE));
+		$td = array();
+		$td = array("Total");
+		
+		foreach($arraySummation as $total)
+		{
+			$td[] = $employee->defaultCurrency.array_sum($total);
+		}
+		
+		
+		$this->employeedata['yrlyTotal'] = $td;
+		
+		$table->addTDRow($td, array('t'=>'total','s'=>'bold'));
+		
+		
+		
+		
+		
+		$pdf->writeHTML($table->getHTML(), true, false, false, false, 'L');
+		
+		
+	}
+	
+	
+
+	protected function renderBudget($page_repo, $pdf, $menu)
+	{
+		$pdf->writeH3('Budget Table');
+
+		$expenditure    = new expenditure_lib();
+		$employee       = new employee_lib();
+		$allExpDetails  = $expenditure->getAllExpenditureDetails("", "", ""); // All Expenditures
+		$allEmpDetails  = $employee->getAllEmployeeDetails2("", "", ""); // All employees
+		$allRelatedExpenses = $allEmpDetails; // All employees for related expenses calculation
+		$arraySummation = array();
+		$yearexpenses   = array();
+
+		$empexpenses    = array();
+
+		
+		
+
+		$this->initExpenses($allExpDetails, $allEmpDetails, $arraySummation, $yearexpenses, $empexpenses, $expenditure, $employee);
+
+		$this->expensesdata['employeeexpenses'] = $empexpenses;
+
+		//keep data to graphdatabank
+		$this->graphdatabank->employee                  = $employee;
+		$this->graphdatabank->allEmpDetails             = $allEmpDetails;
+		$this->graphdatabank->allExpDetails             = $allExpDetails;
+		$this->graphdatabank->personalRelatedExpenses   = $personalRelatedExpenses;
+		$this->graphdatabank->yearexpenses              = $yearexpenses;
+
+
+		$pdf->Ln(1.5);
+		
+		$this->writeBudgetTable($pdf );
+		
+
+		//var_dump($arraySummation);
+
+		// Related Expenses calculation
+		(int)$personalRelatedExpenses = $_SESSION['bpRelatedExpensesInPercentage'];
+
+		//get monthly expenses
+
+		$data = $this->graphdatabank->getExpensesByMonthGraphData();
+		$data['title'] = '';
+
+		//show accumulated bar type of graph
+		//use dummy data for direct cost
+		//$data2y = array(1200, 5400, 6412, 2461, 4577, 6441, 6464, 946, 7451, 4678, 7466, 4785);
+		//$data['data1y'] = $data['datay'];
+		//$data['data2y'] = $data2y;
+
+		//unset($data['datay']);
+		
+		
+		
+
+		//$this->renderImage($pdf, 'Expenses By Month', 'monthly_graph.png', $data, 'accumulated');
+		$this->renderImage($pdf, 'Expenses By Month', 'monthly_graph.png', $data);
+
+		//end render of graph for expenses by month
+
+		//get yearly expenses data
+		$data = $this->graphdatabank->getExpensesByYearGraphData();
+		$data['title'] = '';
+
+		$this->renderImage($pdf, 'Expenses By Year', 'yearly_graph.png', $data);
+
+		$pdf->writeH3('About The Budget');
+		$this->renderPageContent($page_repo, $pdf, $menu);
+
+	}
+
+
+	private function writeBudgetTable($pdf ) {
+		
+		$allExpDetails = $this->graphdatabank->allExpDetails;
+
+		$years = array('');
+		
+		foreach ($allExpDetails[0]['financial_status'] as $eachFinStat)
+		{
+
+			$years[] = "FY" . $eachFinStat['financial_year'];
+
+		}
+		
+		$table = new HTMLTable();
+		$table->addTHRow($years);
+		
+		//$empexpenses needs be calculated before this function call in function initExpenses
+		$empexpenses = $this->expensesdata['employeeexpenses'];
+		
+		$this->writeBudgetExpensesRows($table, $empexpenses);
+		
+		$pdf->writeHTML($table->getHTML(), true, false, false, false, 'L');
+		
+		
+	}
+
+	private function writeBudgetExpensesRows(&$table, $expenses){
+		$table->add1ColRow('Operating Expenses','bold', 'left', 'normal','4');
+
+		foreach($expenses as $key=>$value) {
+			$tmparray = array_merge(array($key), $value);
+
+			if ($key != "Total Operating Expenses") {
+				$table->addTDRow($tmparray, null, true);
+			} else {
+				$table->addTDRow($tmparray, array('t'=>'total','s'=>'bold'));
+			}
+
+		}
+	}
+
+	
+
+	protected function renderCashFlowProjections($page_repo, $pdf, $menu)
+	{
+		$pdf->Ln(1);
+		$pdf->writeH3('Cash Flow Projections');
+		$pdf->Ln(1.5);
+		//begin cashflow projection table
+		if(isset($_SESSION['bpId']))
+		{
+			$businessPlanId = $_SESSION['bpId'];
+			$cashFlow = new cashFlowProjection_lib();
+			$getPayments = $cashFlow->Payments($businessPlanId);
+			$this->writeCashFlowTable($getPayments, $pdf);
+
+		}
+
+		//end cashflow projection table
+
+		$pdf->writeH3('About Cash Flow Projections');
+		$this->renderPageContent($page_repo, $pdf, $menu);
+	}
+
+	private function writeCashFlowTable($payments, $pdf ) {
+		$table = new HTMLTable();
+		$table->addTHRow(array("",""));
+		$table->add1ColRow('Cash Inflow','bold', 'left', 'normal','2');
+		$table->addTDRow(array("% of Sales on Credit", $payments[0]['percentage_sale'] . "%"), null, true);
+		$table->addTDRow(array("Avg Collection Period (Days)", $payments[0]['days_collect_payments']), null, true);
+		$table->add1ColRow('Cash Outflow','bold', 'left', 'normal','2');
+		$table->addTDRow(array("% Purchases on Credit", $payments[0]['percentage_purchase'] . "%"), null, true);
+		$table->addTDRow(array("Avg Payment Delay (Days)", $payments[0]['days_make_payments']), null, true);
+
+		$pdf->writeHTML($table->getHTML(), true, false, false, false, 'L');
+	}
+
+	protected function renderLoansandInvestments($page_repo, $pdf, $menu)
+	{
+		$pdf->Ln(1);
+		$pdf->writeH3('Loans and Investments Table');
+		$pdf->Ln(1.5);
+
+		$_loanInvestment = new loansInvestments_lib();
+		$allloanInvestmentProjection = $_loanInvestment->getAllCashProjections("", "", "");
+
+		if($allloanInvestmentProjection)
+		{
+			$this->writeLoansandInvestmentsTable($_loanInvestment, $allloanInvestmentProjection, $pdf );
+		}
+
+		$this->renderDefaultSections($page_repo, $pdf, $menu);
+	}
+
+	private function writeLoansandInvestmentsTable($_loanInvestment, $allloanInvestmentProjection, $pdf ) {
+
+		$th = array('');
+		$yrsOfFinancialForecast = $_loanInvestment->financialYear();
+		for($e_yr = 0; $e_yr < count($yrsOfFinancialForecast); $e_yr++ )
+		{
+			$th[] = 'FY' . $yrsOfFinancialForecast[$e_yr];
+
+		}
+
+		$yearlydata = array();
+		$monthlydata= $this->loansdata['monthly'] 	= array();
+		
+		$yearlydata['yearsrows'] 			= $th;
+		$yearlydata['loansrows']			= array();
+		$yearlydata['loansdetailrows']	= array();
+		
+		$table = new HTMLTable();
+
+		$table->addTHRow($th);
+
+		//echo highlight_string(var_export($allloanInvestmentProjection, TRUE));
+		
+		$monthlycolumnname 				= 'limr_month_';
+		$monthlydata['loansrows']		= array();
+		$monthlydata['loansdetailrows']	= array();
+		$monthlydata['totalrows']	 	= array("Total Amount Received");
+		
+		foreach($allloanInvestmentProjection as $expDetails)
+		{
+
+			$td = array($expDetails['loan_invest_name']);
+
+			foreach($expDetails['financial_receive'] as $finDetails)
+			{
+				$td[] = $_loanInvestment->defaultCurrency.number_format($finDetails['lir_total_per_yr'], 0, '.', ',');
+
+			}
+
+			$details = $expDetails['type_of_funding'] . " at " . $expDetails['loan_invest_interest_rate'] . "% interest";
+			
+			$td[0] .= '<br><span style="font-family: arialmt">' . $details . '</span>';
+			
+			$table->addTDRow($td, array('t'=>'normal','s'=>'bold'));
+			$yearlydata['loansrows'][] = $td;
+			
+			
+			//$details = $expDetails['type_of_funding'] . " at " . $expDetails['loan_invest_interest_rate'] . "% interest";
+			//$table->addTDRow(array($details,"","",""));
+
+			$yearlydata['loansdetailrows'][] 	= array($details,"","","");
+			
+			
+			
+			for($i=0; $i< count($expDetails['financial_receive']); $i++)
+			{
+				$arraySummation[$i][$counter]  = $expDetails['financial_receive'][$i]['lir_total_per_yr'];
+			}
+
+			
+			$tmpmonthlyloanscols 	= array($expDetails['loan_invest_name']);
+			$tmpmonthlydetailcols 	= array($details);
+			
+			
+			//keep monthly data
+			for($i = 0; $i < 12 ; $i++)
+			{
+				$strindex 				= str_pad($i+1,2,"0",STR_PAD_LEFT);
+				$tmpmonthlyloanscols[] 	= $expDetails[$monthlycolumnname . $strindex];
+				$tmpmonthlydetailcols[] = "";				
+				$monthlydata['totalrows'][$i+1] += $expDetails[$monthlycolumnname . $strindex];
+			}
+			
+			
+			
+			
+			$monthlydata['loansrows'][] 		= $tmpmonthlyloanscols;
+			$monthlydata['loansdetailrows'][] 	= $tmpmonthlydetailcols;		
+			
+			
+			$counter = $counter+1;
+
+		}// end foreach
+
+		$td = array("Total Amount Received");
+
+		foreach($arraySummation as $total)
+		{
+			$td[] = $_loanInvestment->defaultCurrency . number_format(array_sum($total), 0, '.', ',');
+		}
+
+		$table->addTDRow($td, array('t'=>'total','s'=>'bold'));
+
+		
+		$yearlydata['totalrows'] = $td;
+		
+		
+		$this->loansdata['yearly'] 	= $yearlydata;
+		$this->loansdata['monthly'] = $monthlydata;
+		
+		//echo highlight_string(var_export($yearlydata, TRUE));
+
+		//echo highlight_string(var_export($monthlydata, TRUE));
+		
+		
+		$pdf->writeHTML($table->getHTML(), true, false, false, false, 'L');
+	}
+
+	// FINANCIAL STATEMENT
+
+	protected function renderProfitandLossStatement($page_repo, $pdf, $menu)
+	{
+
+		/* here we make use of the stored graph data */
+
+		//$this->renderImage($pdf, 'Sales By Month', 'monthly_graph_sales.png');
+		//$this->renderImage($pdf, 'Gross Margin(%) By Month', 'monthly_graph_gross_margin.png');
+		//$this->renderImage($pdf, 'Expenses By Month', 'monthly_graph.png');
+
+		$this->writePAndLTable($pdf);
+
+		//handle sales(revenue) by month
+		$data = $this->graphdatabank->getSalesByMonthGraphData();
+		$data['title'] = 'Months in Year 1';
+		$this->renderImage($pdf, 'Sales By Month', 'monthly_graph_sales.png', $data);
+
+		//handle gross by year
+		$data = $this->graphdatabank->getSalesGrossByMonthGraphData();
+		$data['title'] = '';
+		$this->renderImage($pdf, 'Gross Margin(%) By Month', 'monthly_graph_gross_margin.png', $data);
+
+		//get monthly expenses
+		$data = $this->graphdatabank->getExpensesByMonthGraphData();
+		$data['title'] = '';
+
+		//show accumulated bar type of graph
+		//use dummy data for direct cost
+		//$data2y = array(1200, 5400, 6412, 2461, 4577, 6441, 6464, 946, 7451, 4678, 7466, 4785);
+
+		//$data['data1y'] = $data['datay'];
+		//$data['data2y'] = $data2y;
+
+		//unset($data['datay']);
+
+		$this->renderImage($pdf, 'Expenses By Month', 'monthly_graph.png', $data);
+		
+		
+		$years = $this->salesdata['years'];
+		//netprofitsales is calculated in function writePAndLTable
+		
+		$counter = 0;
+		$data['datax'] = array();
+		$data['datay'] = array();
+		foreach($years as $year)
+		{		
+			$data['datax'][] = $year;
+			$data['datay'][] = $this->salesdata['netprofitsales'][$counter++];		
+		}
+		
+		$this->renderImage($pdf, 'Net Profit (Or Loss) By Year', 'netprofitsales.png', $data);
+
+		//end render of graph for expenses by month
+
+		$pdf->writeH3('About Profit and Loss Statement');
+		$this->renderPageContent($page_repo, $pdf, $menu);
+	}
+
+	private function writePAndLTable($pdf) {
+
+		$table = new HTMLTable();
+
+		$sales = new sales_forecast_lib();
+		$allSalesDetails = $sales->getAllSales("", "", "");
+
+		$yeartotal = 0;
+		
+		//echo highlight_string(var_export($allSalesDetails, TRUE));
+		
+		if($allSalesDetails > 0)
+		{
+			
+			
+			
+			$monthrows = array('Revenue');
+			
+			
+			foreach($allSalesDetails as $expDetails)
+			{
+				$totaSaleCounter = 0;
+
+				for($i=0; $i< count($expDetails['financial_status']); $i++)
+				{
+					$arraySalesSummation[$i][$counter]  = ($expDetails['financial_status'][$i]['total_per_yr'] * $expDetails['price']);
+				}
+				
+				
+				
+				for($i = 0; $i < 12; $i++){
+						
+					$stri = str_pad($i+1,2,"0",STR_PAD_LEFT);
+					$monthrows[$i+1] += ($expDetails["month_" . $stri] * $expDetails['price']);
+				
+					
+				}
+				
+				//echo highlight_string(var_export($tmprows, TRUE));
+				
+				$counter = $counter+1;
+			}// end foreach
+
+			$this->profitlossdata['monthlyrevenuerows'] = $monthrows;
+			//echo highlight_string(var_export($this->profitlossdata['monthlyrevenuerows'], TRUE));
+			
+			$revenue = $arraySalesSummation;
+			$th = array("");
+
+			$financialYearSF = $sales->startFinancialYear;
+			$financialYearSF = $financialYearSF + 1;
+
+			foreach ($allSalesDetails[0]['financial_status'] as $eachFinStat)
+			{
+				$th[] = "FY" . $financialYearSF++;
+			}
+
+			$table->addTHRow($th);
+
+			$td = array("Revenue");
+
+			
+			
+			$totalSalesCounter = 0;
+			foreach($arraySalesSummation as $sumOfAllSales)
+			{
+				$totalSales[$totalSalesCounter] = (array_sum($sumOfAllSales));
+				$totalSales_format[$totalSalesCounter] = number_format(array_sum($sumOfAllSales), 0, '.', ',');
+				$td[] = $sales->defaultCurrency.$totalSales_format[$totalSalesCounter];
+				
+				
+				$totalSalesCounter = $totalSalesCounter + 1;
+				
+			}
+
+			$table->addTDRow($td, array('t'=>'total','s'=>'bold'));
+
+			
+			$this->profitlossdata['yearlyrevenuerows'] 	= $td;
+			
+			$monthrows = array("Direct Cost");
+			
+			
+			foreach($allSalesDetails as $expDetails)
+			{
+				for($i=0; $i< count($expDetails['financial_status']); $i++)
+				{
+					$arrayCostSummation[$i][$counter]  = ($expDetails['financial_status'][$i]['total_per_yr'] * $expDetails['cost']);
+				}
+				
+				for($i = 0; $i < 12; $i++){
+				
+					$stri = str_pad($i+1,2,"0",STR_PAD_LEFT);
+					$monthrows[$i+1] += ($expDetails["month_" . $stri] * $expDetails['cost']);
+				
+				
+				}
+				
+				
+				
+				$counter = $counter+1;
+			}// end foreach
+
+			$this->profitlossdata['monthlydirectcostrows'] 	= $monthrows;
+			
+			
+			$td = array("Direct Cost");
+
+			$totalCostCounter = 0;
+			foreach($arrayCostSummation as $sumOfAllCost)
+			{
+				$totalDirectCost[$totalCostCounter] = (array_sum($sumOfAllCost));
+				$totalDirectCost_format[$totalCostCounter] = number_format(array_sum($sumOfAllCost), 0, '.', ',');
+				$td[] = $sales->defaultCurrency.$totalDirectCost_format[$totalCostCounter];
+
+				$totalCostCounter = $totalCostCounter + 1;
+			}
+
+			$this->profitlossdata['yearlydirectcostrows'] 	= $td;
+			
+			
+			$table->addTDRow($td, array('t'=>'total','s'=>'bold'));
+
+			$grossMargin = $this->salesdata['grossMarginRaw'];
+			
+			$td = array("Gross Margin");
+			
+			foreach($grossMargin as $key=>$value){
+				$td[] = $sales->defaultCurrency.number_format($value, 0, '.', ',');                   
+				
+			}
+			
+
+			$this->writeGrossMarginRows($td, $this->salesdata['gross_margin_percentage'], $table);
+
+			$this->writeBudgetExpensesRows($table, $this->expensesdata['employeeexpenses']);
+
+			//$grossMargin = array_slice($this->salesdata['gross_margin'], 1);
+			//transform values to float
+			// foreach($grossMargin as $key=>$value){
+			//    $grossvalue = str_replace($sales->defaultCurrency, "", $value);
+			//    $grossvalue = str_replace(",", "", $grossvalue);
+			//    $grossMargin[$key] = floatval($grossvalue);
+			
+			// }
+			
+			
+			//var_dump($grossMargin);
+			
+			$allExpense = $this->expensesdata['allExpense'];
+
+			
+			include_once(LIBRARY_PATH . '/pdf_calc.php');
+			
+			
+			//<!--------------------        INTEREST INCURRED SECTION       ------------------------->
+			$totalCostCounter = 0;
+			$td = array("Operating Income");
+			
+
+			//var_dump($grossMargin);
+
+			foreach($arrayCostSummation as $sumOfAllCost)
+			{
+
+				//$grossvalue = str_replace($sales->defaultCurrency, "", $grossMargin[$totalCostCounter+1]);
+				//$grossvalue = str_replace(",", "", $grossvalue);
+				//$grossvalue = floatval($grossvalue);
+
+				$operatingIncome[$totalCostCounter] = ( $grossMargin[$totalCostCounter] - $allExpense[$totalCostCounter]);
+
+				if($operatingIncome[$totalCostCounter] < 0)
+				{
+					$open_bracket  = OPEN_BRACKET;
+					$closed_bracket  = CLOSED_BRACKET;
+					$cancelNegative = -1;
+				}
+				else
+				{
+					$open_bracket  = "";
+					$closed_bracket  = "";
+					$cancelNegative = 1;
+				}
+
+				$td[] = $open_bracket . $sales->defaultCurrency.number_format(($operatingIncome[$totalCostCounter] * $cancelNegative ), 0, '.', ',') . $closed_bracket;
+
+				$totalCostCounter = $totalCostCounter + 1;
+			}
+			//echo "income<br>";
+			//var_dump($operatingIncome);
+			$table->addTDRow($td, array('t'=>'total','s'=>'bold'));
+
+			//<!--------------------------------------------------------------------------->
+
+			$this->profitlossdata['yearlyoperatingincomerows'] = $td; 
+			
+			
+			//<!--------------------        INTEREST INCURRED SECTION       ------------------------->
+			if(isset($_interestIncured))
+			{
+				$_loanInvestment = new loansInvestments_lib();
+				$allloanInvestmentProjection = $_loanInvestment->getAllCashProjections("", "", "");
+				$sumOfEachLoan = "";
+
+				$td = array("Interest Incurred");
+
+				$_yrlyCalcInterest = array();
+				$array_interestIncuredCounter = 0;
+				$array_interestIncured = array();
+				$currency = $sales->defaultCurrency;
+				if(isset($_interestIncured))
+				{
+					$_yrlyCalcInterest =  $_interestIncured;
+				} else
+				{
+					$_yrlyCalcInterest = 0;
+				}
+
+				// loop through this for number of years
+				foreach($_yrlyCalcInterest as $yrInterestIncured)
+				{
+					//print_r($yrInterestIncured);
+
+					$array_interestIncured[$array_interestIncuredCounter] = array_sum($yrInterestIncured);
+
+					if($array_interestIncured[$array_interestIncuredCounter] < 0)
+					{
+						$open_bracket  = OPEN_BRACKET;
+						$closed_bracket  = CLOSED_BRACKET;
+						$cancelNegative = -1;
+					}
+					else
+					{
+						$open_bracket  = "";
+						$closed_bracket  = "";
+						$cancelNegative = 1;
+					}
+
+					$td[] = $open_bracket . $sales->defaultCurrency . number_format(($array_interestIncured[$array_interestIncuredCounter] * $cancelNegative), 0, '.', ',') . $closed_bracket;
+
+					$array_interestIncuredCounter = $array_interestIncuredCounter + 1;
+				}
+				
+				
+				$this->profitlossdata['yearlyinterestincurredrows'] = $td;
+				
+
+				$table->addTDRow($td);
+
+			} //end isset interestincurred
+
+
+
+			//add depreciation and amortization
+			$lib = new expenditure_lib();
+			$numbersyrOfFinancialForecast = $lib->numberOfFinancialYrForcasting;	
+			$major_purchases_details = $lib->getAllMajorPurchaseDetails('', 'mp_date');
+			$years = array();
+			
+			
+			
+			$monthly_detail_purchases = array();
+			
+			foreach ($major_purchases_details as $purchase) {
+				list($pm, $py) = explode(' ', $purchase['mp_date']);
+				if ( !isset($years[$py])) {
+					$years[$py] = 0;
+				}
+
+				if ($purchase['mp_depreciate']) {
+					$years[$py] += $purchase['mp_price'];
+					
+					if (!isset($monthly_detail_purchases[$purchase['mp_date']])) {
+						$monthly_detail_purchases[$purchase['mp_date']] = $purchase['mp_price'];
+					} else {
+						$monthly_detail_purchases[$purchase['mp_date']] += $purchase['mp_price'];
+					}
+					
+				}
+			}
+			
+			//highlight_string(var_export($monthly_detail_purchases, true));
+			
+			$major_purchase = array_values($years);
+
+			$p = .20;
+
+
+
+			/*
+			for($e_yr = 0; $e_yr < $numbersyrOfFinancialForecast; $e_yr++ ) {
+				$total_major_purchase = 0;
+				for ($i = 0; $i < $e_yr; $i++) {
+					$total_major_purchase += $major_purchase[$i];
+				}
+
+				if (isset($data[$e_yr - 1])) {
+					$total_major_purchase -= $data[$e_yr - 1];
+				}
+
+				$data[$e_yr] = $total_major_purchase * $p;
+								
+			}
+			*/
+			
+			$financialYearSF = $sales->startFinancialYear;
+			//$financialYearSF = $financialYearSF + 1;
+
+			$td = array('Depreciation and Amortization');
+
+			foreach ($allSalesDetails[0]['financial_status'] as $eachFinStat)
+			{
+				$tmpval = isset($years[$financialYearSF])?$years[$financialYearSF]:0;
+				$major_purchase[] = $tmpval;
+				$data[$financialYearSF] = $tmpval * $p;
+				$td[] = $sales->defaultCurrency . $data[$financialYearSF];
+				$financialYearSF++;
+			}
+			
+
+			
+			/*
+			for($e_yr = 0; $e_yr < $numbersyrOfFinancialForecast; $e_yr++ ){
+				$td[] = $sales->defaultCurrency . $data[$e_yr] . $close_bracket;  
+			}
+			*/
+
+			$this->profitlossdata['yearlydepreciation'] = $data;
+			$this->profitlossdata['yearlydepreciationrows'] = $td;
+
+
+			$array_depreciation = $data;
+
+			$table->addTDRow($td);
+
+
+			//initmonthly depreciation
+			
+			$tmpvaluerows 	= array('Depreciation and Amortization');
+			$tmpvalues 		= array();
+			$monthnames 	= array("Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+			"Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+			$financialYearSF = $sales->startFinancialYear;
+			foreach($monthnames as $mm){
+				
+				if (isset($monthly_detail_purchases[$mm. " " .$financialYearSF])) {			
+					$tmpvaluerows[] = 	$monthly_detail_purchases[$mm. " " .$financialYearSF] * $p;
+					$tmpvalues[]	=	$monthly_detail_purchases[$mm. " " .$financialYearSF] * $p;
+				} else {
+					$tmpvaluerows[] = 0;
+					$tmpvalues[]	= 0;
+				}	
+				
+			}
+
+			$this->profitlossdata['monthlydepreciationrows'] = $tmpvaluerows;
+			$this->profitlossdata['monthlydepreciation'] = $tmpvalues;
+
+			//end depreciation and amortization
+
+
+			//<!--------------------       INCOME TAXES    ------------------------------------->
+			$_loanInvestment = new loansInvestments_lib();
+			$allloanInvestmentProjection = $_loanInvestment->getAllCashProjections("", "", "");
+			//print_r($allloanInvestmentProjection);
+			$sumOfEachLoan = "";
+
+			$numbersyrOfFinancialForecast = $_loanInvestment->numberOfFinancialYrForcasting;
+
+			$td = array("Income Taxes");
+			$array_incomeTax = array();
+
+			if(isset($array_eachYrEstimatedIncomeTax))
+			{
+				$array_eachYrEstimatedIncomeTax = $array_eachYrEstimatedIncomeTax;
+			}
+
+			// loop through this for number of years
+			for($e_yr = 0; $e_yr < $numbersyrOfFinancialForecast; $e_yr++ )
+			{
+				//print_r($yrInterestIncured);
+				if(count($array_eachYrEstimatedIncomeTax) > 0)
+				{
+					$array_incomeTax[$e_yr] = $array_eachYrEstimatedIncomeTax[$e_yr];
+				}
+				else
+				{
+					$array_incomeTax[$e_yr] = 0;
+				}
+
+				if($array_incomeTax[$e_yr] < 0)
+				{
+					$open_bracket  = OPEN_BRACKET;
+					$closed_bracket  = CLOSED_BRACKET;
+					$cancelNegative = -1;
+				}
+				else
+				{
+					$open_bracket  = "";
+					$closed_bracket  = "";
+					$cancelNegative = 1;
+				}
+
+				$td[] = $open_bracket . $sales->defaultCurrency . number_format(($array_incomeTax[$e_yr] * $cancelNegative), 0, '.', ',') . $closed_bracket;
+
+			}
+
+			$table->addTDRow($td);
+			
+			$this->profitlossdata['yearlyincometaxrows'] = $td;
+			
+
+			//<!--------------------------------------------------------------------------->
+			//<!--------------------	NET PROFIT	----------------------------------------->
+			$sumOfEachLoan = "";					
+			$numbersyrOfFinancialForecast = $_loanInvestment->numberOfFinancialYrForcasting;    
+			$td = array("Net Profit");		
+			$array_netProfit = array();
+			// loop through this for number of years
+			for($e_yr = 0; $e_yr < $numbersyrOfFinancialForecast; $e_yr++ )
+			{
+				if((count($operatingIncome) > 0) and (count($array_interestIncured) > 0) and (count($array_incomeTax) > 0))
+				{
+					/*---	Take off any available comas	---*/
+					$operatingIncome[$e_yr] = 			str_replace(",", "", $operatingIncome[$e_yr]);
+					$array_interestIncured[$e_yr] = 	str_replace(",", "", $array_interestIncured[$e_yr]);
+					$array_incomeTax[$e_yr] = 			str_replace(",", "", $array_incomeTax[$e_yr]);
+					
+					$array_netProfit[$e_yr] = ($operatingIncome[$e_yr] - ($array_interestIncured[$e_yr] + $array_incomeTax[$e_yr]+
+					$array_depreciation[$e_yr]));
+				}
+				else
+				{
+					$array_netProfit[$e_yr] = 0;
+				}
+				
+				//$array_netProfit[$e_yr] = ($array_netProfit[$e_yr] * -1);
+				
+				if($array_netProfit[$e_yr] < 0)
+				{
+					
+					$open_bracket  = OPEN_BRACKET;
+					$closed_bracket  = CLOSED_BRACKET;
+					$cancelNegative = -1;
+				}
+				else
+				{
+					$open_bracket  = "";
+					$closed_bracket  = "";
+					$cancelNegative = 1;
+				}
+				
+				
+				$td[] = $open_bracket . $currency. number_format(($array_netProfit[$e_yr] * $cancelNegative), 0, '.', ',') . $closed_bracket;
+			} 
+
+			$table->addTDRow($td);
+			
+			$this->profitlossdata['yearlynetprofit'] = $td;
+			
+			//<!--------------------------------------------------------------------------->
+			
+			//<!--------------------	NET PROFIT / SALES	--------------------------------->
+			$sumOfEachLoan = "";			
+			$numbersyrOfFinancialForecast = $_loanInvestment->numberOfFinancialYrForcasting;
+			
+			$array_netProfitSales = array();
+			$array_revenue = array();
+			$array_revenue = $totalSales_format;
+			
+			$td = array('Net Profit/Sales');
+			
+			// loop through this for number of years
+			for($e_yr = 0; $e_yr < $numbersyrOfFinancialForecast; $e_yr++ )
+			{
+				if((count($array_netProfit) > 0) and (count($array_revenue) > 0))
+				{
+					/*---	Take off any available comas	---*/
+					$array_revenue[$e_yr] = 			str_replace(",", "", $array_revenue[$e_yr]);
+					$array_netProfit[$e_yr] = 	str_replace(",", "", $array_netProfit[$e_yr]);
+					
+					$array_netProfitSales[$e_yr] = (($array_netProfit[$e_yr] / $array_revenue[$e_yr]) * 100);
+				}
+				else
+				{
+					$array_netProfitSales[$e_yr] = 0;
+				}
+				if($array_netProfitSales[$e_yr] < 0)
+				{
+					
+					$open_bracket  = OPEN_BRACKET;
+					$closed_bracket  = CLOSED_BRACKET;
+					$cancelNegative = -1;
+				}
+				else
+				{
+					$open_bracket  = "";
+					$closed_bracket  = "";
+					$cancelNegative = 1;
+				}
+				
+				
+				$td[] = $open_bracket . number_format(($array_netProfitSales[$e_yr] * $cancelNegative), 0, '.', ',') . '%' . $closed_bracket;
+				
+			}
+			
+			$table->addTDRow($td, array('t'=>'total','s'=>'bold'));	
+			
+			//keep net profit dales in salesdata
+			$this->salesdata['netprofitsales'] = $array_netProfitSales;
+			$this->profitlossdata['yearlynetprofitsalesrows'] = $td;
+
+
+			$pdf->Ln(1.5);
+			$pdf->writeHTML($table->getHTML(), true, false, false, false, 'L');
+
+		}
+
+	}
+
+	protected function renderBalanceSheet($page_repo, $pdf, $menu)
+	{
+		$pdf->writeH3('Balance Sheet 1');
+		$pdf->Ln(1.5);
+		
+		$this->writeBalanceSheetTable($pdf);
+		
+		$pdf->writeH3('About Balance Sheet1');
+		$this->renderPageContent($page_repo, $pdf, $menu);
+	}
+
+	public function writeBalanceSheetTable($pdf) {
+		
+		include(LIBRARY_PATH . '/pdf_calc.php');           
+		include(LIBRARY_PATH . '/pdf_balance_calc.php'); 
+		
+		//echo highlight_string(var_export($cashProjectionDetails, TRUE));
+		
+		$table = new HTMLTable();
+		
+		$table->addTHRow($years);
+
+		$table->addTDRow($cash);
+
+		$table->addTDRow($accountreceivable);
+
+		$table->addTDRow($currentassets, array('t'=>'normal','s'=>'bold'));
+
+		$td = array(); //build empty row
+		
+		foreach($years as $yr){
+			$td[] = '';
+		}
+		
+		$table->addTDRow($td);
+
+		$table->addTDRow($longtermassets);
+		//$longtermassets = array("Long Term Assets");
+		//note: add empty row before
+		//note no data to pick up for long term assets
+
+		$table->addTDRow($depreciations);
+		//$depreciations = array("Accumulated Depreciation");
+		//note: value in website is hardcoded to zero
+
+		
+		$table->addTDRow($totallongtermassets, array('t'=>'normal','s'=>'bold'));
+		//$totallongtermassets = array("Total Long-Term Assets");
+		//note: harcoded in website
+
+		$table->addTDRow($td); //empty row
+		$table->addTDRow($totalassets, array('t'=>'total','s'=>'bold'));
+		//$totalassets = array("Total Assets");
+		//note: add empty line before
+
+		$table->addTDRow($td); //empty row
+		$table->addTDRow($accountpayable); 
+		//$accountpayable = array("Account Payable");
+		//note: add empty line before
+
+
+		//$table->addTDRow($salestaxespayable);
+		// $salestaxespayable = array("Sales Taxes Payable");
+		// note: hard coded to zero in website
+
+
+		//$table->addTDRow($shorttermdebt);
+		//$shorttermdebt = array("Short-Term Debt");
+		//note: hard coded to zero in website
+
+		$table->addTDRow($totalcurrentliability, array('t'=>'normal','s'=>'bold'));
+		//$totalcurrentliability = array("Total Current Liabilities");
+		//note: hard coded to zero in website
+
+		$table->addTDRow($td); //empty row
+		$table->addTDRow($longtermdebt); 
+		//$longtermdebt = array("Long-Term Debt");
+		//note add empty line before
+
+		$table->addTDRow($totalliability, array('t'=>'normal','s'=>'bold'));
+		//$totalliability = array("Total Liabilities");
+		//note: add empty row before
+		//hardcoded to zero in web
+		
+		$pdf->writeHTML($table->getHTML(), true, false, false, false, 'L');
+		
+		
+		
+		
+	}
+	
+
+	//Appendix
+
+	protected function renderAppendixSalesForecast($page_repo, $pdf, $menu)
+	{
+		$pdf->Ln(1);
+
+		//echo highlight_string(var_export($this->graphdatabank->sales, TRUE));
+		
+
+		//data is calculated in renderSalesForecast function call          
+		$thtml = new HTMLTable();
+		$pdf->writeH3('Sales Forecast Table (With Monthly Detail)');
+		$pdf->Ln(3);
+		
+		$months = $this->salesdata['months'];   
+		$year 	= $this->salesdata['years'];
+		$thtml->addLTHRow(array_merge(array($year[0]), str_replace("20","'", $months)));
+		
+		$products = $this->salesdata['products'];
+		
+		$thtml->add1LColRow("Unit Sales", 'bold', 'left', 'normal', 13);
+		
+		foreach($products as $product) {
+			
+			$merged = array_merge(array($product['name']),
+			$this->farraynumber($product['monthlyUnitSales']));
+			
+			$thtml->addLTDRow($merged, null, true);
+			
+		}
+		
+
+		$thtml->add1LColRow("Price Per Unit", 'bold', 'left', 'normal', 13);
+		
+		foreach($products as $product) {
+			
+			$thtml->addLTDRow(array_merge(array($product['name']),$this->farraynumber($product['monthlyPricePerUnit'])), null, true);
+			
+		}
+		
+		$thtml->add1LColRow("Sales", 'bold', 'left', 'normal', 13);
+		
+		foreach($products as $product) {
+			
+			$thtml->addLTDRow(array_merge(array($product['name']),$this->farraynumber($product['monthlyProductSales'])), null, true);
+			
+		}
+		
+		
+		
+		$thtml->addLTDRow(array_merge(array('Total Sales'),$this->farraynumber($this->salesdata['monthlyTotalSales'])),
+		array('s'=>'bold','t'=>'total'));			
+		
+		
+		$thtml->add1LColRow("Direct Cost Per Unit", 'bold', 'left', 'normal', 13);
+		
+		foreach($products as $product) {
+			
+			$thtml->addLTDRow(array_merge(array($product['name']),$this->farraynumber($product['monthlyDirectCostPerUnit'])), null, true);
+			
+		}
+		
+		$thtml->add1LColRow("Direct Cost", 'bold', 'left', 'normal', 13);
+		
+		foreach($products as $product) {
+			
+			$thtml->addLTDRow(array_merge(array($product['name']),$this->farraynumber($product['monthlyDirectCost'])), null, true);
+			
+		}
+		
+		$thtml->addLTDRow(array_merge(array('Total Direct Cost'),$this->farraynumber($this->salesdata['monthlyTotalDirectCost'])),
+		array('s'=>'bold','t'=>'total'));			
+		
+		$thtml->addLTDRow(array_merge(array('Gross Margin'),$this->farraynumber($this->salesdata['monthlyGrossMargin'])), null, true);
+
+		
+		$thtml->addLTDRow(array_merge(array('Gross Margin %'),$this->farraypercent($this->salesdata['monthlyGrossMPercentage'])),
+		array('s'=>'bold','t'=>'total'));
+		
+		
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+		
+		
+		
+		$unit_sales 		= $this->salesdata['yrlyUnitSales'];
+		$price_per_unit 	= $this->salesdata['yrlyUnitPrices'];
+		$product_sales 		= $this->salesdata['yrlyProdSales'];
+		$total_sales		= $this->salesdata['yrlyTotalSales'];
+		$direct_cost_per_unit = $this->salesdata['yrlyUnitCost'];
+		$direct_cost		= $this->salesdata['yrlyCosts'];
+		$total_direct_cost 	= $this->salesdata['yrlyTotalCosts'];
+		$gross_margin 		= $this->salesdata['yrlyGrossMargin'];
+		$gross_margin_percentage = $this->salesdata['yrlyGMPercentage'];
+		
+		
+		$pdf->AddPage("L");
+		
+		$years 	= $this->salesdata['years'];
+		
+		$thtml = new HTMLTable();
+		
+		$thtml->addLTHRow(array_merge(array(''),$years));
+		
+		$thtml->add1LColRow('Unit Sales','bold', 'left', 'normal','4');
+		
+		foreach ($unit_sales as $row) {
+			$thtml->addLTDRow($this->farraynumber($row), null, true);
+		}
+
+		$thtml->add1LColRow('Price Per Unit','bold', 'left', 'normal','4');
+		foreach ($price_per_unit as $row) {
+			$thtml->addLTDRow($this->farraynumber($row), null, true);
+		}
+
+		$thtml->add1LColRow('Sales','bold', 'left', 'normal','4');
+		foreach ($product_sales as $row) {
+			$thtml->addLTDRow($this->farraynumber($row), null, true);
+		}
+
+		$thtml->addLTDRow($this->farraynumber($total_sales), array('t'=>'total','s'=>'bold'));
+
+		$thtml->add1LColRow('Direct Cost Per Unit','bold', 'left', 'normal','4');
+		foreach ($direct_cost_per_unit as $row) {
+			$thtml->addLTDRow($this->farraynumber($row), null, true);
+		}
+
+		$thtml->add1LColRow('Direct Cost','bold', 'left', 'normal','4');
+		foreach ($direct_cost as $row) {
+			$thtml->addLTDRow($this->farraynumber($row), null, true);
+		}
+		
+		$thtml->addLTDRow($this->farraynumber($total_direct_cost), array('t'=>'total','s'=>'bold'));
+		
+		$this->writeGrossMarginRows($this->farraynumber($gross_margin), $this->farraynumber($gross_margin_percentage), $thtml, true);
+		
+		
+		//echo highlight_string(var_export($thtml->getHTML(), TRUE));
+		
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+
+	}	
+
+
+	protected function renderCashFlowStatement($page_repo, $pdf, $menu)
+	{
+		$pdf->writeH3('About Cash Flow Statement');
+		$this->renderPageContent($page_repo, $pdf, $menu);
+	}
+
+	protected function number($number, $decimal = 0)
+	{
+		return number_format($number, $decimal, '.', ',');
+	}
+
+	protected function percentage($number, $decimal = 0)
+	{
+		return number_format($number, $decimal, '.', ',') . '%';
+	}
+
+	protected function currency($sales_forecast_lib, $number)
+	{
+		return $sales_forecast_lib->defaultCurrency . $this->number($number, 2);
+	}
+	
+	protected function farraynumber($tarray) {
+		
+		$currency = $this->salesdata['currency'];
+		//$currency = html_entity_decode($currency);
+		
+		foreach($tarray as $key=>$value) {
+			
+			$value = str_replace(array($currency,','), '', $value);
+			
+			if (is_numeric($value)) {
+				$tarray[$key] = $currency . $this->number($value, 0);
+			} else {
+				$tarray[$key] = $value;
+			}	
+		}
+		
+		return $tarray;
+		
+	}
+	
+	protected function farraypercent($tarray) {
+		
+		foreach($tarray as $key=>$value) {
+			$tarray[$key] = $this->percentage($value, 0);
+		}
+		
+		return $tarray;
+		
+	}
+	
+
+	protected function renderImage($pdf, $label, $fname, $data = null, $type="single")
+	{
+		$pdf->setJPEGQuality(100);
+
+		//echo '<br><br>'.$label.'<br><br>';
+		//var_dump($data);
+
+		if($type=="single") {
+			$img = $this->grapher->genSngBar($data);
+		} else if ($type=="accumulated") {
+			$img = $this->grapher->genAccuBar($data);
+		} else {
+			$img = $this->grapher->genDblBar($data);
+		}
+
+		$filename = GRAPH_IMAGES_PATH . "PDF" . $fname;
+		
+		$filename = ($fname == null? null: $filename);
+		
+		ob_start();
+		imagepng($img, $filename, 5);
+		$imageData = ob_get_contents();
+		ob_end_clean();
+
+		$pdf->Bookmark($label, 2, 0, '', '', array(0,0,0));
+		//$img =  '<img style="margin:auto; width: 600; " src="data:image/png;base64,'.base64_encode($imageData).'" />';
+		$img =  '<img style="margin:auto; width: 600; " src="'. GRAPH_IMAGES_PATH . "PDF" . $fname .'" />';
+		
+		
+		$h = '<div style="page-break-inside:avoid;"><p style="font-family: rock; font-size: 10;">'. $label . '</p>';
+		$pdf->writeHTMLCell(0, 0, '', '', $h . '<div style="text-align:center; width: 100%;">' . $img . '</div></div>', 0, 1, 0, true, '', true);
+
+	}
+	
+	protected function renderAppendixPersonnelPlan($page_repo, $pdf, $menu)
+	{
+		$pdf->writeH3('Personnel Table (With Monthly Detail)');
+		$pdf->Ln(2);
+		
+		$employees 			= $this->employeedata['employees'];
+		$monthlysalarytotal	= $this->employeedata['monthlysalarytotal'];
+		
+		$thtml = new HTMLTable();
+		$months = $this->salesdata['months'];
+		$years 	= $this->salesdata['years'];
+		
+		$thtml->addLTHRow(array_merge(array($years[0]), str_replace("20","'", $months)));
+		
+		foreach($employees as $employee)
+		{
+			$thtml->addLTDRow(array_merge(array($employee['name']),$this->farraynumber($employee['monthlysalary'])), null);
+			
+		}
+		
+		$monthlysalarytotal =  $this->employeedata['monthlysalarytotal'];
+		
+		$thtml->addLTDRow(array_merge(array('Total'),$this->farraynumber($monthlysalarytotal)),
+		array('s'=>'bold','t'=>'total'));
+		
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+		
+		$years 	= $this->salesdata['years'];
+		
+		$thtml = new HTMLTable();
+		
+		$thtml->addLTHRow(array_merge(array(''),$years));
+		
+		foreach($employees as $employee)
+		{
+			$thtml->addLTDRow($this->farraynumber($employee['yrlysalary']), null);
+			
+		}
+		
+		$yrlyTotal = $this->employeedata['yrlyTotal'];
+		
+		
+		$thtml->addLTDRow($yrlyTotal,
+		array('s'=>'bold','t'=>'total'));
+		
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+		
+	}
+	
+	protected function renderAppendixBudget($page_repo, $pdf, $menu)
+	{
+		
+		
+		
+		$pdf->writeH3('Budget Table (With Monthly Detail)');
+		$pdf->Ln(2);
+			
+		
+		//data is calculated in expenses
+		$monthlytotalsalary			= $this->expensesdata['monthlytotalsalary'];
+		$monthlytotalrelatedexpenses= $this->expensesdata['monthlytotalrelatedexpenses'];
+		$monthlytotalexpenses		= $this->expensesdata['monthlytotalexpenses'];
+		
+		
+	
+		$thtml = new HTMLTable();
+		$months = $this->salesdata['months'];
+		$years 	= $this->salesdata['years'];
+	
+		$thtml->addLTHRow(array_merge(array($years[0]), str_replace("20","'", $months)));
+		
+		$thtml->add1LColRow("Expenses", 'bold', 'left', 'normal', 13);
+		
+		$thtml->addLTDRow(array_merge(array('Salary'),$this->farraynumber($monthlytotalsalary)), null);
+
+		$thtml->addLTDRow(array_merge(array('Employee Related Expenses'),$this->farraynumber($monthlytotalrelatedexpenses)), null);
+			
+		$thtml->addLTDRow(array_merge(array('Total Expenses'),$this->farraynumber($monthlytotalexpenses)),
+				array('s'=>'bold','t'=>'total'));
+	
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+	
+	
+		
+		$years 	= $this->salesdata['years'];
+		
+		//data is calculated in expenses
+		$yearlyTotalSalary		= $this->expensesdata['yearlyTotalSalary'];
+		$yearlyTotalRSalary		= $this->expensesdata['yearlyTotalRSalary'];
+		$yearlyTotalExpenses	= $this->expensesdata['yearlyTotalExpenses'];
+		
+		$pdf->Ln(2);
+	
+		$thtml = new HTMLTable();
+	
+		$thtml->addLTHRow(array_merge(array(''),$years));
+	
+		
+		$thtml->add1LColRow("Expenses", 'bold', 'left', 'normal', 4);
+		
+		$thtml->addLTDRow(array_merge(array('Salary'),$this->farraynumber($yearlyTotalSalary)), null);
+		$thtml->addLTDRow(array_merge(array('Employee Related Expenses'),$this->farraynumber($yearlyTotalRSalary)), null);
+		
+	
+		$thtml->addLTDRow(array_merge(array('Total Expenses'),$this->farraynumber($yearlyTotalExpenses)),
+				array('s'=>'bold','t'=>'total'));
+	
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+		
+	}
+	
+	protected function initExpenses(&$allExpDetails, &$allEmpDetails, &$arraySummation, &$yearexpenses, &$expensesrows, $expenditure, $employee)
+	{
+		$counter = 0;
+		$arraySummation = "";
+		// Related Expenses calculation
+		(int)$personalRelatedExpenses = $_SESSION['bpRelatedExpensesInPercentage'];
+		$personalRelatedExpenseInPercentage = ($personalRelatedExpenses / 100);
+		
+		/*---------------------------------------------------------------------
+			Employee Salary Calculation loop using the same counter and
+		array summation for both allEmployee and all exenditure
+		---------------------------------------------------------------------*/
+		if($allEmpDetails)
+		{
+			foreach($allEmpDetails as $empDetails)
+			{
+				//$empDetails = number_format($empDetails);
+				for($i=0; $i< count($empDetails['financial_status']); $i++)
+				{
+					$arraySummation[$i][$counter]  = ($empDetails['financial_status'][$i]['total_per_yr']);
+				}
+				$counter = $counter+1;
+			}
+			
+			//<!-------------       SALARY  -------------->
+			
+			$salary = array();
+			$empExpenses = array();
+			
+			foreach($arraySummation as $total)
+			{
+				$salary[] = $employee->defaultCurrency.number_format(array_sum($total), 0, '.', ',');
+				$empExpenses[] = $employee->defaultCurrency.number_format($personalRelatedExpenseInPercentage * array_sum($total), 0, '.', ',');
+			}
+			
+			$expensesrows['Salary'] = $salary;
+			$expensesrows['Employee Related Expenses'] = $empExpenses;
+			
+			/*---------------------------------------------------------------------
+				Calculate Employee Related Expenses
+			---------------------------------------------------------------------*/
+			
+			foreach($allEmpDetails as $empDetails)
+			{
+				for($i=0; $i< count($empDetails['financial_status']); $i++)
+				{
+					$arraySummation[$i][$counter]  = ($personalRelatedExpenseInPercentage * $empDetails['financial_status'][$i]['total_per_yr']);
+				}
+				$counter = $counter+1;
+			}
+			
+			
+			
+			//init monthly data
+			$monthlytotalsalary 			= array();
+			$monthlytotalrelatedexpenses 	= array();
+			$monthlytotalexpenses 			= array();
+			
+			
+			
+			foreach($allEmpDetails as $empDetails)
+			{
+				for ($counter = 0; $counter < 12; $counter++)
+				{
+					$counterstr 						= str_pad($counter+1,2,"0",STR_PAD_LEFT);
+					$monthlytotalsalary[$counter] 			+= $empDetails['month_' . $counterstr];
+					$monthlytotalrelatedexpenses[$counter] 	+= ($personalRelatedExpenseInPercentage * $empDetails['month_' . $counterstr]);
+					$monthlytotalexpenses[$counter] 	= $monthlytotalsalary[$counter] + $monthlytotalrelatedexpenses[$counter];
+				}
+				
+				
+				
+			}
+			
+			
+			//echo highlight_string(var_export($monthlysalary, TRUE));
+			//echo highlight_string(var_export($monthlyrelatedexpenses, TRUE));
+			$this->expensesdata['monthlytotalsalary'] 			= $monthlytotalsalary;
+			$this->expensesdata['monthlytotalrelatedexpenses'] 	= $monthlytotalrelatedexpenses;
+			$this->expensesdata['monthlytotalexpenses'] 		= $monthlytotalexpenses;
+			
+			
+			//init yearly data
+			
+			$yearlyTotalSalary 		= array();
+			$yearlyTotalRSalary 	= array();
+			$yearlyTotalExpenses 	= array();
+			
+			foreach($allEmpDetails as $empDetails)
+			{
+				$counter = 0;
+				
+				foreach($empDetails['financial_status'] as $yearexpense)
+				{
+					$yearlyTotalSalary[$counter] 	+= $yearexpense['total_per_yr'];
+					$yearlyTotalRSalary[$counter] 	+= $yearexpense['related_expenses'];
+					$yearlyTotalExpenses[$counter] 	= $yearlyTotalSalary[$counter] + $yearlyTotalRSalary[$counter];
+					
+					$counter++;
+					
+				}
+				
+			}
+			
+			$this->expensesdata['yearlyTotalSalary'] 	= $yearlyTotalSalary;
+			$this->expensesdata['yearlyTotalRSalary'] 	= $yearlyTotalRSalary;
+			$this->expensesdata['yearlyTotalExpenses'] 	= $yearlyTotalExpenses;
+			
+			
+			
+			/*---------------------------------------------------
+			Expenditure  Calculation loop
+			/*-----------------------------------------------*/
+			foreach($allExpDetails as $expDetails)
+			{
+				
+				$tmparray = array();
+				
+				foreach($expDetails['financial_status'] as $finDetails)
+				{
+					$tmparray[] = $expenditure->defaultCurrency.number_format($finDetails['total_per_yr'], 0, '.', ',');
+				}
+				
+				$expensesrows[$expDetails['expenditure_name']] = $tmparray;
+				
+				for($i=0; $i< count($expDetails['financial_status']); $i++)
+				{
+					$arraySummation[$i][$counter]  = $expDetails['financial_status'][$i]['total_per_yr'];
+				}
+				$counter = $counter+1;
+				
+			}
+			
+			//expenses by year
+			
+			$y = 0;
+			$allExpense     = array();
+			$tmparray       = array();
+			
+			foreach($arraySummation as $sumOfAllExpenses)
+			{
+				$allExpense[$y] = array_sum($sumOfAllExpenses);
+				
+				$yearexpenses[$allExpDetails[0]['financial_status'][$y]['financial_year']] = $allExpense[$y];
+				$tmparray[] = $expenditure->defaultCurrency.number_format($allExpense[$y], 0, '.', ',');
+				$y = $y+1;
+			}
+			
+			$expensesrows["Total Operating Expenses"] = $tmparray;
+			
+			$this->expensesdata['allExpense'] = $allExpense;
+			
+			
+			
+		}
+		
+	}
+	
+	
+	
+	protected function renderAppendixLoansandInvestments($page_repo, $pdf, $menu)
+	{
+		$pdf->writeH3('Loans and Investments Table (With Monthly Detail)');
+		$pdf->Ln(2);
+	
+		$employees 			= $this->employeedata['employees'];
+		$monthlysalarytotal	= $this->employeedata['monthlysalarytotal'];
+	
+		$thtml = new HTMLTable();
+		$months = $this->salesdata['months'];
+		$years 	= $this->salesdata['years'];
+	
+		$thtml->addLTHRow(array_merge(array($years[0]), str_replace("20","'", $months)));
+	
+				
+		$tmploansrows 		= $this->loansdata['monthly']['loansrows'];
+		$tmploansdetailrows	= $this->loansdata['monthly']['loansdetailrows'];
+		//$tmploansdetailrows	= $this->loansdata['monthly'] 	= array();
+		
+		
+		foreach($tmploansrows as $key => $value)
+		{
+			$value[0] = $value[0] . '<br><span style="font-family: arialmt">' .  $tmploansdetailrows[$key][0] . '</span>';
+			
+			$thtml->addLTDRow($this->farraynumber($value), 
+					array('s'=>'bold', 't'=>'normal'));
+			//$thtml->addLTDRow($this->farraynumber($tmploansdetailrows[$key]));
+				
+		}
+	
+		$tmptotal =  $this->loansdata['monthly']['totalrows'];
+	
+		$thtml->addLTDRow($this->farraynumber($tmptotal),
+				array('s'=>'bold','t'=>'total'));
+	
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+	
+		$years 	= $this->salesdata['years'];
+	
+		$pdf->AddPage('L');
+		
+		
+		$thtml = new HTMLTable();
+	
+		$thtml->addLTHRow(array_merge(array(''),$years));
+	
+		$tmploansrows 		= $this->loansdata['yearly']['loansrows'];
+		$tmploansdetailrows	= $this->loansdata['yearly']['loansdetailrows'];
+		
+		foreach($tmploansrows as $key => $value)
+		{
+			//$value[0] = $value[0] . '<br><span style="font-family: arialmt">' .  $tmploansdetailrows[$key][0] . '</span>';
+			$thtml->addLTDRow($this->farraynumber($value), 
+					array('s'=>'bold', 't'=>'normal'));
+			//$thtml->addLTDRow($this->farraynumber($tmploansdetailrows[$key]));
+				
+		}
+	
+		$tmptotal =  $this->loansdata['yearly']['totalrows'];
+	
+	
+		$thtml->addLTDRow($tmptotal,
+				array('s'=>'bold','t'=>'total'));
+	
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+	
+	}
+	
+	
+	protected function renderAppendixProfitandLossStatement($page_repo, $pdf, $menu)
+	{
+		$pdf->writeH3('Profit and Loss Statement (With Monthly Detail)');
+		$pdf->Ln(2);
+	
+		$monthrows 			= $this->profitlossdata['monthlyrevenuerows'];
+		
+	
+		$thtml = new HTMLTable();
+		$months = $this->salesdata['months'];
+		$years 	= $this->salesdata['years'];
+	
+		$thtml->addLTHRow(array_merge(array($years[0]), str_replace("20","'", $months)));
+	
+	
+		//$tmploansrows 		= $this->loansdata['monthly']['loansrows'];
+		//$tmploansdetailrows	= $this->loansdata['monthly']['loansdetailrows'];
+		//$tmploansdetailrows	= $this->loansdata['monthly'] 	= array();
+	
+		$thtml->addLTDRow($this->farraynumber($monthrows),
+				array('s'=>'bold', 't'=>'total'));
+		
+	
+		$monthrows = $this->profitlossdata['monthlydirectcostrows'];
+		
+		
+		$thtml->addLTDRow($this->farraynumber($monthrows),
+				array('s'=>'bold', 't'=>'total'));
+		
+		
+		
+		
+		$monthrows = $this->salesdata['monthlyGrossMargin'];
+		$monthrows = array_merge( array('Gross Margin') , $monthrows);
+		
+		$thtml->addLTDRow($this->farraynumber($monthrows),
+				array('s'=>'normal', 't'=>'normal'));
+		
+				
+		$monthrows = $this->salesdata['monthlyGrossMPercentage'];
+		$monthrows = array_merge( array('Gross Margin %') , $monthrows);
+		
+		$thtml->addLTDRow($this->farraypercent($monthrows),
+				array('s'=>'bold', 't'=>'total'));
+	
+		$thtml->add1LColRow("Operating Expenses", 'bold', 'left', 'normal', 13);
+		
+		//data is calculated in expenses
+		$monthlytotalsalary			= $this->expensesdata['monthlytotalsalary'];
+		$monthlytotalrelatedexpenses= $this->expensesdata['monthlytotalrelatedexpenses'];				
+		
+		$thtml->addLTDRow(array_merge(array('Salary'),$this->farraynumber($monthlytotalsalary)), null);
+		
+		$thtml->addLTDRow(array_merge(array('Employee Related Expenses'),$this->farraynumber($monthlytotalrelatedexpenses)), null);
+		
+		$monthlytotalexpenses		= $this->expensesdata['monthlytotalexpenses'];
+		
+		$thtml->addLTDRow(array_merge(array('Total Expenses'),$this->farraynumber($monthlytotalexpenses)),
+				array('s'=>'bold','t'=>'total'));
+		
+		$monthrows = $this->salesdata['monthlyGrossMargin'];
+		
+		$tmprows = array();
+		
+		for($i = 0; $i < 12; $i++){		
+			$tmprows[$i] = $monthrows[$i] -  $monthlytotalexpenses[$i];
+		}
+		
+		
+		$monthlyoperatingincome = $tmprows;
+		
+		$thtml->addLTDRow(array_merge(array('Operating Income'),$this->farraynumber($tmprows)),
+				array('s'=>'bold','t'=>'total'));
+		
+		$monthlyrows = $this->profitlossdata['monthlyinterestincurredrows'];
+		$monthlyrows = array_merge(array('Interest Incurred'), $this->farraynumber($monthlyrows));
+		
+		$thtml->addLTDRow($monthlyrows,
+				array('s'=>'normal','t'=>'normal'));
+		
+		
+		//add depreciation
+		$monthlyrows = $this->profitlossdata['monthlydepreciationrows'];
+		$thtml->addLTDRow($monthlyrows,
+				array('s'=>'normal','t'=>'normal'));
+					
+		
+		//calculate monthtly incometax
+		//loop through this for number of years
+		
+		$monthlygrossmargin 		= $this->salesdata['monthlyGrossMargin'];
+		$montylyinterestincurred 	= $this->profitlossdata['monthlyinterestincurredrows'];
+		$monthlyrows = array();
+		$tmprows	 = array();
+		
+		$expenditure    = new expenditure_lib();
+		$incomeTaxRate  =  $expenditure->incomeTaxRate;
+		
+		$tmptotalexpense = array();
+		
+		$depreciation = $this->profitlossdata['monthlydepreciation'];
+		
+		//echo "tax rate: " . $incomeTaxRate;
+		
+		for($i = 0; $i < 12; $i++)		
+		{
+			$totalexpense 	= $monthlytotalexpenses[$i];
+			$grossmargin 	= $monthlygrossmargin[$i];
+			$interestincur	= $montylyinterestincurred[$i];
+				
+			
+			$monthlyrows[$i] = ($grossmargin - $totalexpense - $interestincur);		//operating income * taxrate/100
+			$tmprows[$i] = (($monthlyoperatingincome[$i] * $incomeTaxRate) / 100);			
+			
+		
+			if($monthlyrows[$i] < 0) { 	$monthlyrows[$i] = 0; }
+
+			$tmptotalexpense[$i] = $interestincur + $tmprows[$i] + $depreciation[$i]; //income tax + interest incurred + depreciation
+					
+		}
+		
+		$monthlyincometaxes = $tmptotalexpense;
+		
+		$monthlyrows = array_merge(array('Income Taxes'), $this->farraynumber( $tmprows ));
+				
+		$thtml->addLTDRow($monthlyrows,
+				array('s'=>'normal','t'=>'normal'));
+		
+		//calculate net profit
+				
+		
+			
+		$monthlydirectcost	= array_slice($this->profitlossdata['monthlydirectcostrows'], 1);
+		
+		$revenue = $this->profitlossdata['monthlyrevenuerows'];
+		
+		$tmprows	 = array();
+		$monthlyrows = array();
+		for($i = 0; $i < 12; $i++)
+		{
+			$expense 			= $monthlydirectcost[$i] + $monthlytotalexpenses[$i] + $monthlyincometaxes[$i] ;
+			$monthlyrows[$i] 	= $revenue[$i] - $expense;
+			$tmprows[$i] 		= $revenue[$i] > 0 ? ($monthlyrows[$i] / $revenue[$i] * 100) : 0 ;
+		}
+		
+		
+		highlight_string(var_export($revenue,true));
+		highlight_string(var_export($monthlytotalexpenses,true));
+		highlight_string(var_export($monthlyincometaxes,true));
+		
+		$thtml->addLTDRow(array_merge(array('Net Profit'),$this->farraynumber($monthlyrows)),
+				array('s'=>'bold','t'=>'total'));
+		
+		$thtml->addLTDRow(array_merge(array('Net Profit/Sales'),$this->farraypercent($tmprows)),
+				array('s'=>'bold','t'=>'total'));
+		
+		
+		
+		
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+			
+		
+		$years 	= $this->salesdata['years'];
+	
+		$pdf->AddPage('L');
+	
+	
+		$thtml = new HTMLTable();
+	
+		$thtml->addLTHRow(array_merge(array(''),$years));
+	
+		$tmprows = $this->profitlossdata['yearlyrevenuerows'];		
+	
+		$thtml->addLTDRow($tmprows,
+				array('s'=>'bold','t'=>'total'));
+		
+		$tmprows = $this->profitlossdata['yearlydirectcostrows'];
+		
+		$thtml->addLTDRow($tmprows,
+				array('s'=>'bold','t'=>'total'));
+		
+		
+		$tmprows = $this->salesdata['grossMarginRaw'];
+		$tmprows = array_merge( array('Gross Margin'), $tmprows); 
+		
+		$thtml->addLTDRow($tmprows,
+				array('s'=>'normal','t'=>'normal'));
+		
+		$thtml->add1LColRow("Operating Expenses", 'bold', 'left', 'normal', 4);
+		
+		$yearlyTotalSalary		= $this->expensesdata['yearlyTotalSalary'];
+		$yearlyTotalRSalary		= $this->expensesdata['yearlyTotalRSalary'];
+		
+		$thtml->addLTDRow(array_merge(array('Salary'),$this->farraynumber($yearlyTotalSalary)), null);
+		$thtml->addLTDRow(array_merge(array('Employee Related Expenses'),$this->farraynumber($yearlyTotalRSalary)), null);
+		
+		
+		$yearlyTotalExpenses	= $this->expensesdata['yearlyTotalExpenses'];
+		$thtml->addLTDRow(array_merge(array('Total Expenses'),$this->farraynumber($yearlyTotalExpenses)),
+				array('s'=>'bold','t'=>'total'));
+		
+		$tmprows = $this->profitlossdata['yearlyoperatingincomerows'];
+		
+		
+		
+		
+		$thtml->addLTDRow($tmprows,
+				array('s'=>'bold','t'=>'total'));
+		
+		$tmprows = $this->profitlossdata['yearlyinterestincurredrows'];
+		$thtml->addLTDRow($tmprows,
+				array('s'=>'normal','t'=>'normal'), true);
+	
+		$tmprows = $this->profitlossdata['yearlydepreciationrows'];
+		$thtml->addLTDRow($tmprows,
+				array('s'=>'normal','t'=>'normal'), true);
+
+		
+		
+		$tmprows = $this->profitlossdata['yearlyincometaxrows'];
+		$thtml->addLTDRow($tmprows,
+				array('s'=>'normal','t'=>'normal'), true);
+						
+		$tmprows = $this->profitlossdata['yearlynetprofit'];
+		$thtml->addLTDRow($tmprows,
+				array('s'=>'bold','t'=>'normal'));
+		
+		
+		$tmprows = $this->profitlossdata['yearlynetprofitsalesrows'];
+		$thtml->addLTDRow($tmprows,
+				array('s'=>'bold','t'=>'total'));
+		
+		
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+		
+		
+	
+	}
+	
+	protected function renderAppendixBalanceSheet($page_repo, $pdf, $menu)
+	{
+	
+	
+	
+		$pdf->writeH3('Balance Sheet (With Monthly Detail)');
+		$pdf->Ln(2);
+			
+	
+		//data is calculated in expenses
+		$monthlytotalsalary			= $this->expensesdata['monthlytotalsalary'];
+		$monthlytotalrelatedexpenses= $this->expensesdata['monthlytotalrelatedexpenses'];
+		$monthlytotalexpenses		= $this->expensesdata['monthlytotalexpenses'];
+	
+	
+	
+		$thtml = new HTMLTable();
+		$months = $this->salesdata['months'];
+		$years 	= $this->salesdata['years'];
+	
+		$thtml->addLTHRow(array_merge(array("As of Period's End" . $years[0]), str_replace("20","'", $months)));
+	
+		$thtml->add1LColRow("Expenses", 'bold', 'left', 'normal', 13);
+	
+		$thtml->addLTDRow(array_merge(array('Salary'),$this->farraynumber($monthlytotalsalary)), null);
+	
+		$thtml->addLTDRow(array_merge(array('Employee Related Expenses'),$this->farraynumber($monthlytotalrelatedexpenses)), null);
+			
+		$thtml->addLTDRow(array_merge(array('Total Expenses'),$this->farraynumber($monthlytotalexpenses)),
+				array('s'=>'bold','t'=>'total'));
+	
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+	
+	
+	
+		$years 	= $this->salesdata['years'];
+	
+		//data is calculated in expenses
+		$yearlyTotalSalary		= $this->expensesdata['yearlyTotalSalary'];
+		$yearlyTotalRSalary		= $this->expensesdata['yearlyTotalRSalary'];
+		$yearlyTotalExpenses	= $this->expensesdata['yearlyTotalExpenses'];
+	
+		$pdf->Ln(2);
+	
+		$thtml = new HTMLTable();
+	
+		$thtml->addLTHRow(array_merge(array(''),$years));
+	
+	
+		$thtml->add1LColRow("Expenses", 'bold', 'left', 'normal', 4);
+	
+		$thtml->addLTDRow(array_merge(array('Salary'),$this->farraynumber($yearlyTotalSalary)), null);
+		$thtml->addLTDRow(array_merge(array('Employee Related Expenses'),$this->farraynumber($yearlyTotalRSalary)), null);
+	
+	
+		$thtml->addLTDRow(array_merge(array('Total Expenses'),$this->farraynumber($yearlyTotalExpenses)),
+				array('s'=>'bold','t'=>'total'));
+	
+		$pdf->writeHTML($thtml->getHTML(), true, false, false, false, 'L');
+	
+	}
+	
+	
+}
+
+

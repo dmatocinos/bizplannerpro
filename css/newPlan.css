@@ -1,0 +1,60 @@
+#new-plan #header-tabs{display:none;}
+#new-plan #main{margin:0px auto;}
+#new-plan #content{margin:0px;padding:6px;}
+#new-plan #content h3{font-size:1.8em;line-height:1.4em;}
+#new-plan #content h4{color:#707070;line-height:1.4em;clear:both;font-weight:normal;}
+#new-plan #column_1{background:#ffffff;width:668px;float:right;padding:20px;border:1px solid #c1c1c1;}
+#new-plan #column_1 h3{font-weight:normal;margin-bottom:0;}
+#new-plan #column_1 ul.plan-name li.text input{width:460px;}
+#new-plan #column_1 .radioListContainer ul.settings li.option{clear:none;width:auto;margin-right:20px;padding:5px;background:#e6e7e8;-moz-border-radius:8px;-webkit-border-radius:8px;}
+#new-plan #column_1 .radioListContainer ul.settings{padding:10px 10px 10px 20px;}
+#new-plan #column_1 .radioListContainer ul.settings li.option label{padding:70px 12px 12px;border:1px solid #c1c1c1;min-width:90px;text-align:center;}
+#new-plan #column_1 .radioListContainer ul.settings li.option input{left:-9999px;position:absolute;}
+#financialScopeRadioButtonGroup_radioList li.option:first-child label{background:#ffffff url('../images/sprites/gold_bar.png') no-repeat center 12px !important;}
+#financialScopeRadioButtonGroup_radioList li.option.active:first-child label{background:#ffffff url('../images/sprites/gold_bar_active.png') no-repeat center 12px !important;}
+#financialScopeRadioButtonGroup_radioList li.option label{background:#ffffff url('../images/sprites/gold_bars.png') no-repeat center 12px;}
+#financialScopeRadioButtonGroup_radioList li.option.active label{background:#ffffff url('../images/sprites/gold_bars_active.png') no-repeat center 12px;}
+#businessStageRadioButtonGroup_radioList li.option:first-child label{background:#ffffff url('../images/sprites/startup.png') no-repeat center 12px !important;}
+#businessStageRadioButtonGroup_radioList li.option.active:first-child label{background:#ffffff url('../images/sprites/startup_active.png') no-repeat center 12px !important;}
+#businessStageRadioButtonGroup_radioList li.option label{background:#ffffff url('../images/sprites/existing_business.png') no-repeat center 12px;}
+#businessStageRadioButtonGroup_radioList li.option.active label{background:#ffffff url('../images/sprites/existing_business_active.png') no-repeat center 12px;}
+#audienceRadioButtonGroup_radioList li.option:first-child label{background:#ffffff url('../images/sprites/internal_only.png') no-repeat center 12px !important;padding-bottom:24px !important;}
+#audienceRadioButtonGroup_radioList li.option.active:first-child label{background:#ffffff url('../images/sprites/internal_only_active.png') no-repeat center 12px !important;}
+#audienceRadioButtonGroup_radioList li.option label{background:#ffffff url('../images/sprites/outsiders.png') no-repeat center 12px;}
+#audienceRadioButtonGroup_radioList li.option.active label{background:#ffffff url('../images/sprites/outsiders_active.png') no-repeat center 12px;}
+#new-plan #column_1 .radioListContainer ul.settings li.option.active{background:#dd7700;}
+#new-plan #column_1 .radioListContainer ul.settings li.option.active label{border:1px solid #6d8517;}
+#new-plan #column_1 ul li.option label .title, #plan-settings #column_1 ul li.option label .title{display:block;float:left;font-size:1.4em;line-height:23px;}
+#new-plan #column_1 .radioListContainer ul.settings li.option label .title, #plan-settings #column_1 .radioListContainer ul.settings li.option label .title{float:none;line-height:16px;}
+#new-plan #column_1 ul li.option label .description, #plan-settings #column_1 ul li.option label .description{float:left;clear:left;color:#707070;font-size:1.1em;line-height:1.1em;padding:0px;}
+#new-plan #column_1 .create-plan{margin-top:20px;}
+#new-plan #column_2{width:210px;float:left;margin:14px 0 0 14px;}
+#new-plan #column_2 .intro-text{font-size:1.2em;color:#505050;}
+#new-plan #column_2 .video{padding:10px 10px 0px;background:#e5e6e6;margin-bottom:19px;font-size:.9em;}
+#new-plan #column_2 .video h3{font-weight:bold;margin:0px;}
+#new-plan #column_2 embed{border:1px solid #000000;margin-bottom:5px;}
+#new-plan #column_2 .optional-container{background:#ffffff;padding-bottom:5px;-moz-border-radius:4px;-webkit-border-radius:4px;border:1px solid #ffffff;}
+#new-plan #column_2 .optional-container.expanded{background:#EBF4F9;border:1px solid #96B0C2;}
+#new-plan #column_2 a.optional-toggle{background:transparent url(../images/icons/arrow_right.png) no-repeat 8px 10px;display:block;float:left;padding:4px 10px 4px 20px;text-decoration:none;-moz-border-radius:4px;-webkit-border-radius:4px;margin-bottom:4px;}
+#new-plan #column_2 a.optional-toggle:hover{background:#E2EFF7 url('../images/icons/arrow_right.png') no-repeat 8px 10px;}
+#new-plan #column_2 .optional-container.expanded a.optional-toggle{background:transparent url('../images/icons/arrow_down.png') no-repeat 6px 12px;}
+#new-plan #column_2 .optional-container.expanded a.optional-toggle:hover{background:#EBF4F9 url('../images/icons/arrow_down.png') no-repeat 6px 12px;}
+#new-plan #column_2 .optional-container h3{display:block;float:left;font-size:1.4em;font-weight:bold;line-height:23px;}
+#new-plan #column_2 .optional-toggle h3{color:#0C508D;margin:0px;}
+#new-plan #column_2 .optional-toggle h4{clear:left;color:#707070;display:block;float:left;font-size:1.1em;line-height:1.1em;padding-bottom:10px;}
+#new-plan #column_2 .optional-toggle span{display:block;float:left;color:#0C508D;font-size:1.1em;line-height:1.1em;padding-bottom:10px;}
+#new-plan #column_2 .optional-toggle:hover span{text-decoration:underline;}
+#new-plan span.error{display:block;clear:left;color:#BD1A00;font-size:1.1em;line-height:14px;margin-bottom:5px;padding-top:5px;}
+#new-plan #newPlanForm:startDate span.error{margin-left:10px;}
+#new-plan .startDateContainer li{height:49px;}
+#new-plan .startDateContainer input[type=radio]{margin:15px 7px 0 0;}
+#new-plan .startDateContainer li.generic{height:33px;}
+#new-plan .startDateContainer li.generic input[type=radio]{margin:10px 7px 0 0;}
+#new-plan #column_2 .optional{clear:both;padding:5px;margin:5px 5px 0px 5px;}
+#new-plan #column_2 .optional h4{font-size:1.2em;}
+#new-plan #column_2 ul{border:0px none;width:276px;-moz-border-radius:4px;-webkit-border-radius:4px;}
+#new-plan #column_2 ul li, #new-plan .settings-container #column_2 table ul{width:auto;border:0px none;}
+#new-plan #column_2 .optional li.year_details label .year-title{font-weight:bold;}
+#new-plan #column_2 .optional li.year_details table{margin:0 0 10px 10px;}
+#new-plan #column_2 .optional li.year_details table thead{display:none;}
+
